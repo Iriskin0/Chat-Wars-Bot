@@ -1,3 +1,4 @@
+# coding=utf-8
 from pytg.sender import Sender
 from pytg.receiver import Receiver
 from pytg.utils import coroutine
