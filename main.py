@@ -26,12 +26,12 @@ orders = {
 
 arena_cover = ['🛡головы', '🛡корпуса', '🛡ног']
 arena_attack = ['🗡в голову', '🗡по корпусу', '🗡по ногам']
-# cmd игрового бота
-bot_cmd = "$01000000a6b4ce0fd7751104fd9d77e9"
-# cmd бота или человека, который будет отправлять приказы, ставить необязательно
-order_cmd = "$01000000a752a81211980f1035d3fb77"
-# ваш cmd или cmd человека, который может отправлять запросы этому скрипту, ставить необязательно
-admin_cmd = "$010000006a577a038b54018663b8accf"
+# username игрового бота, менять не нужно
+bot_username = "ChatWarsBot"
+# username бота или человека, который будет отправлять приказы, ставить необязательно
+order_username = "iriskin0"
+# ваш username, который может отправлять запросы этому скрипту, ставить необязательно
+admin_username = "iriskin0"
 # поменять blue на red, black, white, yellow в зависимости от вашего замка
 castle = orders['blue']
 # текущий приказ на атаку/защиту, по умолчанию всегда защита, трогать не нужно
@@ -42,6 +42,7 @@ action_list = deque([])
 log_list = deque([], maxlen=30)
 lt_arena = 0
 get_info_diff = 360
+hero_message_id = ''
 
 
 @coroutine
@@ -49,8 +50,9 @@ def work_with_message(receiver):
     while True:
         msg = (yield)
         try:
-            if msg['event'] == 'message' and msg['unread'] and 'text' in msg:
-                    parse_chatwars_text(msg['text'], msg['sender']['cmd'])
+            if msg['event'] == 'message' and msg['unread'] and 'text' in msg and msg['peer'] is not None:
+                parse_text(msg['text'], msg['sender']['username'], msg['id'])
+
         except Exception as err:
             log("Ошибка coroutine: {0}".format(err))
 
@@ -66,21 +68,23 @@ def queue_worker(time_between_commands):
                 if time() - lt_info > get_info_diff:
                     lt_info = time()
                     get_info_diff = random.randint(300, 550)
-                    sender.send_msg(bot_cmd, orders['hero'])
+                    sender.send_msg('@' + bot_username, orders['hero'])
                     continue
 
                 if len(action_list):
                     log("Отправляем " + action_list[0])
-                    sender.send_msg(bot_cmd, action_list.popleft())
+                    sender.send_msg('@' + bot_username, action_list.popleft())
         except Exception as err:
             log("Ошибка очереди: {0}".format(err))
 
 
-def parse_chatwars_text(text, cmd):
+def parse_text(text, username, message_id):
     global lt_arena
-    if cmd == bot_cmd:
+    if username == bot_username:
         log("Получили сообщение от бота. Проверяем условия")
         if text.find("Битва пяти замков через") != -1:
+            global hero_message_id
+            hero_message_id = message_id
             m = re.search('Битва пяти замков через(?: ([0-9]+)ч){0,1}(?: ([0-9]+)){0,1}', text)
             if not m.group(1):
                 if m.group(2) and int(m.group(2)) < 25:
@@ -117,7 +121,7 @@ def parse_chatwars_text(text, cmd):
                 action_list.append("🌲Лес")
 
         elif text.find(" /go") != -1:
-            sender.send_msg(bot_cmd, '/go')
+            sender.send_msg('@' + bot_username, '/go')
 
         elif text.find("выбери точку атаки и точку защиты") != -1:
             lt_arena = time()
@@ -127,51 +131,55 @@ def parse_chatwars_text(text, cmd):
             action_list.append(attack_chosen)
             action_list.append(cover_chosen)
 
-    elif cmd == order_cmd:
-        if text.find(orders['red']) != -1:
-            update_order(orders['red'])
-        elif text.find(orders['black']) != -1:
-            update_order(orders['black'])
-        elif text.find(orders['white']) != -1:
-            update_order(orders['white'])
-        elif text.find(orders['yellow']) != -1:
-            update_order(orders['yellow'])
-        elif text.find(orders['blue']) != -1:
-            update_order(orders['blue'])
-        elif text.find('🌲') != -1:
-            update_order(orders['lesnoi_fort'])
-        elif text.find('⛰') != -1:
-            update_order(orders['gorni_fort'])
-        elif text.find('🛡') != -1:
-            update_order(castle)
+    else:
+        if username == order_username:
+            if text.find(orders['red']) != -1:
+                update_order(orders['red'])
+            elif text.find(orders['black']) != -1:
+                update_order(orders['black'])
+            elif text.find(orders['white']) != -1:
+                update_order(orders['white'])
+            elif text.find(orders['yellow']) != -1:
+                update_order(orders['yellow'])
+            elif text.find(orders['blue']) != -1:
+                update_order(orders['blue'])
+            elif text.find('🌲') != -1:
+                update_order(orders['lesnoi_fort'])
+            elif text.find('⛰') != -1:
+                update_order(orders['gorni_fort'])
+            elif text.find('🛡') != -1:
+                update_order(castle)
 
-        log("Получили команду " + current_order['order'])
-
-    elif cmd == admin_cmd:
-        if text == "#help":
-            sender.send_msg(admin_cmd, "#getlog\n#ping\n#lt_arena\n#order\n#time\n#get_info_diff\n#push_prder")
-        if text == "#getlog":
-            sender.send_msg(admin_cmd, "\n".join(log_list))
-            log_list.clear()
-        if text == "#ping":
-            sender.send_msg(admin_cmd, "#pong")
-        if text == "#lt_arena":
-            sender.send_msg(admin_cmd, str(lt_arena))
-        if text == "#order":
-            text_date = datetime.datetime.fromtimestamp(current_order['time']).strftime('%Y-%m-%d %H:%M:%S')
-            sender.send_msg(admin_cmd, current_order['order'] + " " + text_date)
-        if text == "#time":
-            text_date = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-            sender.send_msg(admin_cmd, text_date)
-        if text == "#get_info_diff":
-            sender.send_msg(admin_cmd, str(get_info_diff))
-        if text.startswith("#push_order"):
-            command = text.split(' ')[1]
-            if command in orders:
-                update_order(orders[command])
-                sender.send_msg(admin_cmd, "Команда " + command + " применена")
-            else:
-                sender.send_msg(admin_cmd, "Команда " + command + " не распознана")
+        if username == admin_username:
+            if text == "#help":
+                sender.send_msg('@' + admin_username, "#getlog\n#ping\n#lt_arena\n#order\n#time\n#get_info_diff\n#push_order\n#get_hero")
+            if text == "#getlog":
+                sender.send_msg('@' + admin_username, "\n".join(log_list))
+                log_list.clear()
+            if text == "#ping":
+                sender.send_msg('@' + admin_username, "#pong")
+            if text == "#lt_arena":
+                sender.send_msg('@' + admin_username, str(lt_arena))
+            if text == "#order":
+                text_date = datetime.datetime.fromtimestamp(current_order['time']).strftime('%Y-%m-%d %H:%M:%S')
+                sender.send_msg('@' + admin_username, current_order['order'] + " " + text_date)
+            if text == "#time":
+                text_date = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+                sender.send_msg('@' + admin_username, text_date)
+            if text == "#get_info_diff":
+                sender.send_msg('@' + admin_username, str(get_info_diff))
+            if text == "#get_hero":
+                if hero_message_id == '':
+                    sender.send_msg('@' + admin_username, "Информации о герое пока не было")
+                else:
+                    sender.fwd('@' + admin_username, hero_message_id)
+            if text.startswith("#push_order"):
+                command = text.split(' ')[1]
+                if command in orders:
+                    update_order(orders[command])
+                    sender.send_msg('@' + admin_username, "Команда " + command + " применена")
+                else:
+                    sender.send_msg('@' + admin_username, "Команда " + command + " не распознана")
 
 
 def update_order(order):
