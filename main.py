@@ -23,7 +23,7 @@ order_usernames = ''
 # имя замка
 castle_name = ''
 
-# пусть к сокет файлу
+# путь к сокет файлу
 socket_path = ''
 
 # хост чтоб слушать telegram-cli
