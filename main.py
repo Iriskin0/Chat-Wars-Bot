@@ -325,7 +325,7 @@ def log(text):
 
 
 if __name__ == '__main__':
-    receiver = Receiver(sock=socket_path) if socket_path else Receiver(host=host,port=port)
+    receiver = Receiver(sock=socket_path) if socket_path else Receiver(port=port)
     receiver.start()  # start the Connector.
     _thread.start_new_thread(queue_worker, (3, ))
     receiver.message(work_with_message(receiver))
