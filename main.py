@@ -139,7 +139,7 @@ def parse_text(text, username, message_id):
                     send_msg(admin_username, 'До битвы меньше 30 минут!')
                     # прекращаем все действия
                     state = re.search('Состояние:\\n(.*)$', text)
-                    if auto_def_enabled and time() - current_order['time'] > 3600:
+                    if auto_def_enabled and time() - current_order['time'] > 1800:
                         update_order(castle)
                     return
             log('Времени достаточно')
@@ -148,10 +148,10 @@ def parse_text(text, username, message_id):
             gold = int(m.group(1))
             endurance = int(m.group(2))
             log('Золото: {0}, выносливость: {1}'.format(gold, endurance))
-            if arena_enabled and gold >= 5 and '🔎Поиск соперника' not in action_list and time() - lt_arena > 3600:
-                action_list.append('🔎Поиск соперника')
             if les_enabled and endurance > 0 and '🌲Лес' not in action_list:
                 action_list.append('🌲Лес')
+            elif arena_enabled and gold >= 5 and '🔎Поиск соперника' not in action_list and time() - lt_arena > 3600:
+                action_list.append('🔎Поиск соперника')
 
         elif corovan_enabled and text.find(' /go') != -1:
             send_msg(bot_username, '/go')
@@ -289,7 +289,7 @@ def parse_text(text, username, message_id):
             text_date = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
             send_msg(admin_username, text_date)
 
-        if text == '#ping'
+        if text == '#ping':
             send_msg(admin_username, '#pong')
 
         if text == '#get_info_diff':
