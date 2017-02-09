@@ -150,7 +150,7 @@ def parse_text(text, username, message_id):
             log('Золото: {0}, выносливость: {1}'.format(gold, endurance))
             if les_enabled and endurance > 0 and '🌲Лес' not in action_list:
                 action_list.append('🌲Лес')
-            elif arena_enabled and gold >= 5 and '🔎Поиск соперника' not in action_list and time() - lt_arena > 1800:
+            elif arena_enabled and gold >= 5 and '🔎Поиск соперника' not in action_list and time() - lt_arena > 3600:
                 action_list.append('🔎Поиск соперника')
 
         elif corovan_enabled and text.find(' /go') != -1:
