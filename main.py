@@ -61,7 +61,8 @@ orders = {
     'cover': '🛡 Защита',
     'attack': '⚔ Атака',
     'cover_symbol': '🛡',
-    'hero': '🏅Герой'
+    'hero': '🏅Герой',
+    'corovan': '/go',
 }
 
 arena_cover = ['🛡головы', '🛡корпуса', '🛡ног']
@@ -132,7 +133,7 @@ def parse_text(text, username, message_id):
         log('Получили сообщение от бота. Проверяем условия')
 
         if corovan_enabled and text.find(' /go') != -1:
-            send_msg(bot_username, '/go')
+            action_list.append(orders['corovan'])
 
         elif text.find('Битва пяти замков через') != -1:
             hero_message_id = message_id
@@ -142,7 +143,9 @@ def parse_text(text, username, message_id):
                     # send_msg(admin_username, 'До битвы меньше 30 минут!')
                     # прекращаем все действия
                     state = re.search('Состояние:\\n(.*)$', text)
-                    if auto_def_enabled and time() - current_order['time'] > 1800:
+                    if orders['corovan'] in action_list and time() - current_order['time'] < 1800:
+                        update_order(current_order['order'])
+                    elif auto_def_enabled and time() - current_order['time'] > 1800:
                         update_order(castle)
                     return
             log('Времени достаточно')
