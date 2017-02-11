@@ -15,10 +15,10 @@ import random
 bot_username = 'ChatWarsBot'
 
 # ваш username или username человека, который может отправлять запросы этому скрипту
-admin_username = 'iriskin0'
+admin_username = ''
 
 # username бота и/или человека, которые будут отправлять приказы
-order_usernames = 'BlueOysterBot'
+order_usernames = ''
 
 # имя замка
 castle_name = 'blue'
@@ -136,7 +136,7 @@ def parse_text(text, username, message_id):
             m = re.search('Битва пяти замков через(?: ([0-9]+)ч){0,1}(?: ([0-9]+)){0,1}', text)
             if not m.group(1):
                 if m.group(2) and int(m.group(2)) < 30:
-                    send_msg(admin_username, 'До битвы меньше 30 минут!')
+                    #send_msg(admin_username, 'До битвы меньше 30 минут!')
                     # прекращаем все действия
                     state = re.search('Состояние:\\n(.*)$', text)
                     if auto_def_enabled and time() - current_order['time'] > 1800:
@@ -182,7 +182,7 @@ def parse_text(text, username, message_id):
         elif text.find('🛡') != -1:
             update_order(castle)
 
-        send_msg(admin_username, 'Получили команду ' + current_order['order'] + ' от ' + username)
+        #send_msg(admin_username, 'Получили команду ' + current_order['order'] + ' от ' + username)
 
     elif username == admin_username:
         if text == '#help':
@@ -315,6 +315,10 @@ def fwd(to, message_id):
 def update_order(order):
     current_order['order'] = order
     current_order['time'] = time()
+    if order == castle:
+        action_list.append(orders['cover'])
+    else:
+        action_list.append(orders['attack'])
     action_list.append(order)
 
 
