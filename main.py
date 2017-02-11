@@ -97,25 +97,24 @@ def work_with_message(receiver):
             log('Ошибка coroutine: {0}'.format(err))
 
 
-def queue_worker(time_between_commands):
+def queue_worker():
     global get_info_diff
-    last_command_time = time()
     lt_info = 0
     while True:
         try:
-            if time() - last_command_time > time_between_commands:
-                last_command_time = time()
-                if time() - lt_info > get_info_diff:
-                    lt_info = time()
-                    get_info_diff = random.randint(600, 1200)
-                    send_msg(bot_username, orders['hero'])
-                    continue
+            #if time() - last_command_time > time_between_commands:
+            #last_command_time = time()
+            if time() - lt_info > get_info_diff:
+                lt_info = time()
+                get_info_diff = random.randint(600, 1200)
+                send_msg(bot_username, orders['hero'])
+                continue
 
-                if len(action_list):
-                    log('Отправляем ' + action_list[0])
-                    send_msg(bot_username, action_list.popleft())
-                    sleep_time = random.randint(1, 10)
-                    sleep(sleep_time)
+            if len(action_list):
+                log('Отправляем ' + action_list[0])
+                send_msg(bot_username, action_list.popleft())
+            sleep_time = random.randint(2, 8)
+            sleep(sleep_time)
         except Exception as err:
             log('Ошибка очереди: {0}'.format(err))
 
@@ -131,7 +130,11 @@ def parse_text(text, username, message_id):
     global auto_def_enabled
     if bot_enabled and username == bot_username:
         log('Получили сообщение от бота. Проверяем условия')
-        if text.find('Битва пяти замков через') != -1:
+
+        if corovan_enabled and text.find(' /go') != -1:
+            send_msg(bot_username, '/go')
+
+        elif text.find('Битва пяти замков через') != -1:
             hero_message_id = message_id
             m = re.search('Битва пяти замков через(?: ([0-9]+)ч){0,1}(?: ([0-9]+)){0,1}', text)
             if not m.group(1):
@@ -152,9 +155,6 @@ def parse_text(text, username, message_id):
                 action_list.append('🌲Лес')
             elif arena_enabled and gold >= 5 and '🔎Поиск соперника' not in action_list and time() - lt_arena > 3600:
                 action_list.append('🔎Поиск соперника')
-
-        elif corovan_enabled and text.find(' /go') != -1:
-            send_msg(bot_username, '/go')
 
         elif arena_enabled and text.find('выбери точку атаки и точку защиты') != -1:
             lt_arena = time()
@@ -331,6 +331,6 @@ def log(text):
 if __name__ == '__main__':
     receiver = Receiver(sock=socket_path) if socket_path else Receiver(port=port)
     receiver.start()  # start the Connector.
-    _thread.start_new_thread(queue_worker, (3, ))
+    _thread.start_new_thread(queue_worker, ())
     receiver.message(work_with_message(receiver))
     receiver.stop()
