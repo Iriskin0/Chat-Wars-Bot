@@ -146,7 +146,7 @@ def parse_text(text, username, message_id):
                     # send_msg(admin_username, 'До битвы ' + m.group(2) + ' минут(ы)!')
                     # прекращаем все действия
                     state = re.search('Состояние:\\n(.*)$', text)
-                    elif auto_def_enabled and time() - current_order['time'] > 3600:
+                    if auto_def_enabled and time() - current_order['time'] > 3600:
                         update_order(castle)
                     return
             log('Времени достаточно')
