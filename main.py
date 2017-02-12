@@ -61,7 +61,8 @@ orders = {
     'cover': '🛡 Защита',
     'attack': '⚔ Атака',
     'cover_symbol': '🛡',
-    'hero': '🏅Герой'
+    'hero': '🏅Герой',
+    'corovan': '/go',
 }
 
 arena_cover = ['🛡головы', '🛡корпуса', '🛡ног']
@@ -132,17 +133,20 @@ def parse_text(text, username, message_id):
         log('Получили сообщение от бота. Проверяем условия')
 
         if corovan_enabled and text.find(' /go') != -1:
-            send_msg(bot_username, '/go')
+            action_list.append(orders['corovan'])
+
+        if orders['corovan'] in action_list and time() - current_order['time'] < 3600:
+            update_order(current_order['order'])
 
         elif text.find('Битва пяти замков через') != -1:
             hero_message_id = message_id
             m = re.search('Битва пяти замков через(?: ([0-9]+)ч){0,1}(?: ([0-9]+)){0,1}', text)
             if not m.group(1):
-                if m.group(2) and int(m.group(2)) < 30:
-                    #send_msg(admin_username, 'До битвы меньше 30 минут!')
+                if m.group(2) and int(m.group(2)) <= 59:
+                    # send_msg(admin_username, 'До битвы ' + m.group(2) + ' минут(ы)!')
                     # прекращаем все действия
                     state = re.search('Состояние:\\n(.*)$', text)
-                    if auto_def_enabled and time() - current_order['time'] > 1800:
+                    if auto_def_enabled and time() - current_order['time'] > 3600:
                         update_order(castle)
                     return
             log('Времени достаточно')
@@ -182,7 +186,7 @@ def parse_text(text, username, message_id):
         elif text.find('🛡') != -1:
             update_order(castle)
 
-        #send_msg(admin_username, 'Получили команду ' + current_order['order'] + ' от ' + username)
+        # send_msg(admin_username, 'Получили команду ' + current_order['order'] + ' от ' + username)
 
     elif username == admin_username:
         if text == '#help':
