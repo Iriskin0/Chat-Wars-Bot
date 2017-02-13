@@ -168,7 +168,7 @@ def parse_text(text, username, message_id):
             action_list.append(attack_chosen)
             action_list.append(cover_chosen)
 
-    else
+    else:
         if bot_enabled and order_enabled and username in order_usernames:
             if text.find(orders['red']) != -1:
                 update_order(orders['red'])
