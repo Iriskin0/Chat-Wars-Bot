@@ -168,144 +168,145 @@ def parse_text(text, username, message_id):
             action_list.append(attack_chosen)
             action_list.append(cover_chosen)
 
-    elif bot_enabled and order_enabled and username in order_usernames:
-        if text.find(orders['red']) != -1:
-            update_order(orders['red'])
-        elif text.find(orders['black']) != -1:
-            update_order(orders['black'])
-        elif text.find(orders['white']) != -1:
-            update_order(orders['white'])
-        elif text.find(orders['yellow']) != -1:
-            update_order(orders['yellow'])
-        elif text.find(orders['blue']) != -1:
-            update_order(orders['blue'])
-        elif text.find('🌲') != -1:
-            update_order(orders['lesnoi_fort'])
-        elif text.find('⛰') != -1:
-            update_order(orders['gorni_fort'])
-        elif text.find('🛡') != -1:
-            update_order(castle)
+    else
+        if bot_enabled and order_enabled and username in order_usernames:
+            if text.find(orders['red']) != -1:
+                update_order(orders['red'])
+            elif text.find(orders['black']) != -1:
+                update_order(orders['black'])
+            elif text.find(orders['white']) != -1:
+                update_order(orders['white'])
+            elif text.find(orders['yellow']) != -1:
+                update_order(orders['yellow'])
+            elif text.find(orders['blue']) != -1:
+                update_order(orders['blue'])
+            elif text.find('🌲') != -1:
+                update_order(orders['lesnoi_fort'])
+            elif text.find('⛰') != -1:
+                update_order(orders['gorni_fort'])
+            elif text.find('🛡') != -1:
+                update_order(castle)
 
-        # send_msg(admin_username, 'Получили команду ' + current_order['order'] + ' от ' + username)
+            # send_msg(admin_username, 'Получили команду ' + current_order['order'] + ' от ' + username)
 
-    elif username == admin_username:
-        if text == '#help':
-            send_msg(admin_username, '\n'.join([
-                '#enable_bot - Включить бота',
-                '#disable_bot - Выключить бота',
-                '#enable_arena - Включить арену',
-                '#disable_arena - Выключить арену',
-                '#enable_les - Включить лес',
-                '#disable_les - Выключить лес',
-                '#enable_corovan - Включить корован',
-                '#disable_corovan - Выключить корован',
-                '#enable_order - Включить приказы',
-                '#disable_order - Выключить приказы',
-                '#enable_auto_def - Включить авто деф',
-                '#disable_auto_def - Выключить авто деф',
-                '#status - Получить статус',
-                '#hero - Получить информацию о герое',
-                '#push_order - Добавить приказ ({0})'.format(','.join(orders)),
-                '#order - Дебаг, последняя команда защиты/атаки замка',
-                '#log - Дебаг, последние 30 сообщений из лога',
-                '#time - Дебаг, текущее время',
-                '#lt_arena - Дебаг, последняя битва на арене',
-                '#get_info_diff - Дебаг, последняя разница между запросами информации о герое',
-                '#ping - Дебаг, проверить жив ли бот',
-            ]))
+        else username == admin_username:
+            if text == '#help':
+                send_msg(admin_username, '\n'.join([
+                    '#enable_bot - Включить бота',
+                    '#disable_bot - Выключить бота',
+                    '#enable_arena - Включить арену',
+                    '#disable_arena - Выключить арену',
+                    '#enable_les - Включить лес',
+                    '#disable_les - Выключить лес',
+                    '#enable_corovan - Включить корован',
+                    '#disable_corovan - Выключить корован',
+                    '#enable_order - Включить приказы',
+                    '#disable_order - Выключить приказы',
+                    '#enable_auto_def - Включить авто деф',
+                    '#disable_auto_def - Выключить авто деф',
+                    '#status - Получить статус',
+                    '#hero - Получить информацию о герое',
+                    '#push_order - Добавить приказ ({0})'.format(','.join(orders)),
+                    '#order - Дебаг, последняя команда защиты/атаки замка',
+                    '#log - Дебаг, последние 30 сообщений из лога',
+                    '#time - Дебаг, текущее время',
+                    '#lt_arena - Дебаг, последняя битва на арене',
+                    '#get_info_diff - Дебаг, последняя разница между запросами информации о герое',
+                    '#ping - Дебаг, проверить жив ли бот',
+                ]))
 
-        # Вкл/выкл бота
-        if text == '#enable_bot':
-            bot_enabled = True
-            send_msg(admin_username, 'Бот успешно включен')
-        if text == '#disable_bot':
-            bot_enabled = False
-            send_msg(admin_username, 'Бот успешно выключен')
+            # Вкл/выкл бота
+            if text == '#enable_bot':
+                bot_enabled = True
+                send_msg(admin_username, 'Бот успешно включен')
+            if text == '#disable_bot':
+                bot_enabled = False
+                send_msg(admin_username, 'Бот успешно выключен')
 
-        # Вкл/выкл арены
-        if text == '#enable_arena':
-            arena_enabled = True
-            send_msg(admin_username, 'Арена успешно включена')
-        if text == '#disable_arena':
-            arena_enabled = False
-            send_msg(admin_username, 'Арена успешно выключена')
+            # Вкл/выкл арены
+            if text == '#enable_arena':
+                arena_enabled = True
+                send_msg(admin_username, 'Арена успешно включена')
+            if text == '#disable_arena':
+                arena_enabled = False
+                send_msg(admin_username, 'Арена успешно выключена')
 
-        # Вкл/выкл леса
-        if text == '#enable_les':
-            les_enabled = True
-            send_msg(admin_username, 'Лес успешно включен')
-        if text == '#disable_les':
-            les_enabled = False
-            send_msg(admin_username, 'Лес успешно выключен')
+            # Вкл/выкл леса
+            if text == '#enable_les':
+                les_enabled = True
+                send_msg(admin_username, 'Лес успешно включен')
+            if text == '#disable_les':
+                les_enabled = False
+                send_msg(admin_username, 'Лес успешно выключен')
 
-        # Вкл/выкл корована
-        if text == '#enable_corovan':
-            corovan_enabled = True
-            send_msg(admin_username, 'Корованы успешно включены')
-        if text == '#disable_corovan':
-            corovan_enabled = False
-            send_msg(admin_username, 'Корованы успешно выключены')
+            # Вкл/выкл корована
+            if text == '#enable_corovan':
+                corovan_enabled = True
+                send_msg(admin_username, 'Корованы успешно включены')
+            if text == '#disable_corovan':
+                corovan_enabled = False
+                send_msg(admin_username, 'Корованы успешно выключены')
 
-        # Вкл/выкл команд
-        if text == '#enable_order':
-            order_enabled = True
-            send_msg(admin_username, 'Приказы успешно включены')
-        if text == '#disable_order':
-            order_enabled = False
-            send_msg(admin_username, 'Приказы успешно выключены')
+            # Вкл/выкл команд
+            if text == '#enable_order':
+                order_enabled = True
+                send_msg(admin_username, 'Приказы успешно включены')
+            if text == '#disable_order':
+                order_enabled = False
+                send_msg(admin_username, 'Приказы успешно выключены')
 
-        # Вкл/выкл авто деф
-        if text == '#enable_auto_def':
-            auto_def_enabled = True
-            send_msg(admin_username, 'Авто деф успешно включен')
-        if text == '#disable_auto_def':
-            auto_def_enabled = False
-            send_msg(admin_username, 'Авто деф успешно выключен')
+            # Вкл/выкл авто деф
+            if text == '#enable_auto_def':
+                auto_def_enabled = True
+                send_msg(admin_username, 'Авто деф успешно включен')
+            if text == '#disable_auto_def':
+                auto_def_enabled = False
+                send_msg(admin_username, 'Авто деф успешно выключен')
 
-        # Получить статус
-        if text == '#status':
-            send_msg(admin_username, '\n'.join([
-                'Бот включен: {0}',
-                'Арена включена: {1}',
-                'Лес включен: {2}',
-                'Корованы включены: {3}',
-                'Приказы включены: {4}',
-                'Авто деф включен: {5}',
-            ]).format(bot_enabled, arena_enabled, les_enabled, corovan_enabled, order_enabled, auto_def_enabled))
+            # Получить статус
+            if text == '#status':
+                send_msg(admin_username, '\n'.join([
+                    'Бот включен: {0}',
+                    'Арена включена: {1}',
+                    'Лес включен: {2}',
+                    'Корованы включены: {3}',
+                    'Приказы включены: {4}',
+                    'Авто деф включен: {5}',
+                ]).format(bot_enabled, arena_enabled, les_enabled, corovan_enabled, order_enabled, auto_def_enabled))
 
-        # Информация о герое
-        if text == '#hero':
-            fwd(admin_username, hero_message_id)
+            # Информация о герое
+            if text == '#hero':
+                fwd(admin_username, hero_message_id)
 
-        # Получить лог
-        if text == '#log':
-            send_msg(admin_username, '\n'.join(log_list))
-            log_list.clear()
+            # Получить лог
+            if text == '#log':
+                send_msg(admin_username, '\n'.join(log_list))
+                log_list.clear()
 
-        if text == '#lt_arena':
-            send_msg(admin_username, str(lt_arena))
+            if text == '#lt_arena':
+                send_msg(admin_username, str(lt_arena))
 
-        if text == '#order':
-            text_date = datetime.datetime.fromtimestamp(current_order['time']).strftime('%Y-%m-%d %H:%M:%S')
-            send_msg(admin_username, current_order['order'] + ' ' + text_date)
+            if text == '#order':
+                text_date = datetime.datetime.fromtimestamp(current_order['time']).strftime('%Y-%m-%d %H:%M:%S')
+                send_msg(admin_username, current_order['order'] + ' ' + text_date)
 
-        if text == '#time':
-            text_date = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-            send_msg(admin_username, text_date)
+            if text == '#time':
+                text_date = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+                send_msg(admin_username, text_date)
 
-        if text == '#ping':
-            send_msg(admin_username, '#pong')
+            if text == '#ping':
+                send_msg(admin_username, '#pong')
 
-        if text == '#get_info_diff':
-            send_msg(admin_username, str(get_info_diff))
+            if text == '#get_info_diff':
+                send_msg(admin_username, str(get_info_diff))
 
-        if text.startswith('#push_order'):
-            command = text.split(' ')[1]
-            if command in orders:
-                update_order(orders[command])
-                send_msg(admin_username, 'Команда ' + command + ' применена')
-            else:
-                send_msg(admin_username, 'Команда ' + command + ' не распознана')
+            if text.startswith('#push_order'):
+                command = text.split(' ')[1]
+                if command in orders:
+                    update_order(orders[command])
+                    send_msg(admin_username, 'Команда ' + command + ' применена')
+                else:
+                    send_msg(admin_username, 'Команда ' + command + ' не распознана')
 
 
 def send_msg(to, message):
