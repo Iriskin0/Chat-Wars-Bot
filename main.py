@@ -189,7 +189,7 @@ def parse_text(text, username, message_id):
 
             # send_msg(admin_username, 'Получили команду ' + current_order['order'] + ' от ' + username)
 
-        else username == admin_username:
+        if username == admin_username:
             if text == '#help':
                 send_msg(admin_username, '\n'.join([
                     '#enable_bot - Включить бота',
