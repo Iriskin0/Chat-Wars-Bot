@@ -103,18 +103,16 @@ def queue_worker():
     lt_info = 0
     while True:
         try:
-            #if time() - last_command_time > time_between_commands:
-            #last_command_time = time()
             if time() - lt_info > get_info_diff:
                 lt_info = time()
-                get_info_diff = random.randint(600, 1200)
+                get_info_diff = random.randint(400, 800)
                 send_msg(bot_username, orders['hero'])
                 continue
 
             if len(action_list):
                 log('Отправляем ' + action_list[0])
                 send_msg(bot_username, action_list.popleft())
-            sleep_time = random.randint(2, 8)
+            sleep_time = random.randint(2, 6)
             sleep(sleep_time)
         except Exception as err:
             log('Ошибка очереди: {0}'.format(err))
@@ -135,9 +133,6 @@ def parse_text(text, username, message_id):
         if corovan_enabled and text.find(' /go') != -1:
             action_list.append(orders['corovan'])
 
-        if orders['corovan'] in action_list and time() - current_order['time'] < 3600:
-            update_order(current_order['order'])
-
         elif text.find('Битва пяти замков через') != -1:
             hero_message_id = message_id
             m = re.search('Битва пяти замков через(?: ([0-9]+)ч){0,1}(?: ([0-9]+)){0,1}', text)
@@ -151,9 +146,9 @@ def parse_text(text, username, message_id):
                     return
             log('Времени достаточно')
             # теперь узнаем, сколько у нас выносливости и золота
-            m = re.search('Золото: (-*[0-9]+)\\n.*Выносливость: ([0-9]+) из', text)
-            gold = int(m.group(1))
-            endurance = int(m.group(2))
+            #m = re.search('Золото: (-*[0-9]+)\\n.*Выносливость: ([0-9]+) из', text)
+            gold = int(re.search('Золото: (-*[0-9]+)\\n', text).group(1))
+            endurance = int(re.search('Выносливость: ([0-9]+)', text).group(1))
             log('Золото: {0}, выносливость: {1}'.format(gold, endurance))
             if les_enabled and endurance > 0 and '🌲Лес' not in action_list:
                 action_list.append('🌲Лес')
