@@ -9,7 +9,7 @@
 
 Как запустить:<br />
   1) Устанавливаем telegram-cli по официальной инструкции [https://github.com/vysheng/tg]<br />
-  2) Устанавливаем pip3: sudo apt-get python3-pip<br />
+  2) Устанавливаем pip3: sudo apt-get install python3-pip<br />
   2) Устанавливаем pytg для 3 питона: pip3 install pytg<br />
   3) Запускаем telegram-cli: ./telegram-cli --json -P 1338<br />
   4) Качаем этот скрипт и запускаем: `python3 ./main.py --admin "ваш ник" --order "ник игрока или бота, выдающего приказы" --castle "blue/red/black/white/yellow"`<br />
