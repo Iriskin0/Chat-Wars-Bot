@@ -93,7 +93,7 @@ def work_with_message(receiver):
     while True:
         msg = (yield)
         try:
-            if msg['event'] == 'message' and msg['unread'] and 'text' in msg and msg['peer'] is not None:
+            if msg['event'] == 'message' and 'text' in msg and msg['peer'] is not None:
                 parse_text(msg['text'], msg['sender']['username'], msg['id'])
         except Exception as err:
             log('Ошибка coroutine: {0}'.format(err))
