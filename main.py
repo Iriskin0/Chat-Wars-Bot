@@ -55,7 +55,7 @@ orders = {
     'yellow': '🇻🇦',
     'blue': '🇪🇺',
     'lesnoi_fort': '🌲Лесной форт',
-    'les': '🌲',
+    'les': '🌲Лес',
     'gorni_fort': '⛰Горный форт',
     'gora': '⛰',
     'cover': '🛡 Защита',
