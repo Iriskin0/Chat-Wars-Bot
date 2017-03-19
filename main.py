@@ -66,6 +66,22 @@ orders = {
     'peshera': '🕸Пещера'
 }
 
+captcha_answers = {
+    # блядь, кольцов, ну и хуйню же ты придумал
+    'watermelon_n_cherry': '🍉🍒',
+    'bread_n_cheese': '🍞🧀',
+    'cheese': '🧀',
+    'pizza': '🍕',
+    'hotdog': '🌭',
+    'eggplant_n_carrot': '🍆🥕',
+    'dog': '🐕',
+    'horse': '🐎',
+    'goat': '🐐',
+    'cat': '🐈',
+    'pig': '🐖',
+    'squirrel': '🐿'
+}
+
 arena_cover = ['🛡головы', '🛡корпуса', '🛡ног']
 arena_attack = ['🗡в голову', '🗡по корпусу', '🗡по ногам']
 # поменять blue на red, black, white, yellow в зависимости от вашего замка
@@ -107,7 +123,8 @@ def queue_worker():
             if time() - lt_info > get_info_diff:
                 lt_info = time()
                 get_info_diff = random.randint(400, 800)
-                send_msg(bot_username, orders['hero'])
+                if bot_enabled:
+                    send_msg(bot_username, orders['hero'])
                 continue
 
             if len(action_list):
@@ -131,7 +148,18 @@ def parse_text(text, username, message_id):
     if bot_enabled and username == bot_username:
         log('Получили сообщение от бота. Проверяем условия')
 
-        if corovan_enabled and text.find(' /go') != -1:
+        if "На выходе из замка охрана никого не пропускает" in text:
+            send_msg(admin_username, "Командир, у нас проблемы. Опять кольцов со своей говнокапчей! Ответь мне! #captcha " + '|'.join(captcha_answers.keys()))
+            fwd(admin_username, message_id)
+            bot_enabled = False
+
+            #if "Ты-то помнишь," in text:
+            #    print('')
+
+            #elif " гоняясь за " in text:
+            #    print('')
+
+        elif corovan_enabled and text.find(' /go') != -1:
             action_list.append(orders['corovan'])
 
         elif text.find('Битва пяти замков через') != -1:
@@ -212,55 +240,55 @@ def parse_text(text, username, message_id):
                 ]))
 
             # Вкл/выкл бота
-            if text == '#enable_bot':
+            elif text == '#enable_bot':
                 bot_enabled = True
                 send_msg(admin_username, 'Бот успешно включен')
-            if text == '#disable_bot':
+            elif text == '#disable_bot':
                 bot_enabled = False
                 send_msg(admin_username, 'Бот успешно выключен')
 
             # Вкл/выкл арены
-            if text == '#enable_arena':
+            elif text == '#enable_arena':
                 arena_enabled = True
                 send_msg(admin_username, 'Арена успешно включена')
-            if text == '#disable_arena':
+            elif text == '#disable_arena':
                 arena_enabled = False
                 send_msg(admin_username, 'Арена успешно выключена')
 
             # Вкл/выкл леса
-            if text == '#enable_les':
+            elif text == '#enable_les':
                 les_enabled = True
                 send_msg(admin_username, 'Лес успешно включен')
-            if text == '#disable_les':
+            elif text == '#disable_les':
                 les_enabled = False
                 send_msg(admin_username, 'Лес успешно выключен')
 
             # Вкл/выкл корована
-            if text == '#enable_corovan':
+            elif text == '#enable_corovan':
                 corovan_enabled = True
                 send_msg(admin_username, 'Корованы успешно включены')
-            if text == '#disable_corovan':
+            elif text == '#disable_corovan':
                 corovan_enabled = False
                 send_msg(admin_username, 'Корованы успешно выключены')
 
             # Вкл/выкл команд
-            if text == '#enable_order':
+            elif text == '#enable_order':
                 order_enabled = True
                 send_msg(admin_username, 'Приказы успешно включены')
-            if text == '#disable_order':
+            elif text == '#disable_order':
                 order_enabled = False
                 send_msg(admin_username, 'Приказы успешно выключены')
 
             # Вкл/выкл авто деф
-            if text == '#enable_auto_def':
+            elif text == '#enable_auto_def':
                 auto_def_enabled = True
                 send_msg(admin_username, 'Авто деф успешно включен')
-            if text == '#disable_auto_def':
+            elif text == '#disable_auto_def':
                 auto_def_enabled = False
                 send_msg(admin_username, 'Авто деф успешно выключен')
 
             # Получить статус
-            if text == '#status':
+            elif text == '#status':
                 send_msg(admin_username, '\n'.join([
                     'Бот включен: {0}',
                     'Арена включена: {1}',
@@ -271,38 +299,48 @@ def parse_text(text, username, message_id):
                 ]).format(bot_enabled, arena_enabled, les_enabled, corovan_enabled, order_enabled, auto_def_enabled))
 
             # Информация о герое
-            if text == '#hero':
+            elif text == '#hero':
                 fwd(admin_username, hero_message_id)
 
             # Получить лог
-            if text == '#log':
+            elif text == '#log':
                 send_msg(admin_username, '\n'.join(log_list))
                 log_list.clear()
 
-            if text == '#lt_arena':
+            elif text == '#lt_arena':
                 send_msg(admin_username, str(lt_arena))
 
-            if text == '#order':
+            elif text == '#order':
                 text_date = datetime.datetime.fromtimestamp(current_order['time']).strftime('%Y-%m-%d %H:%M:%S')
                 send_msg(admin_username, current_order['order'] + ' ' + text_date)
 
-            if text == '#time':
+            elif text == '#time':
                 text_date = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
                 send_msg(admin_username, text_date)
 
-            if text == '#ping':
+            elif text == '#ping':
                 send_msg(admin_username, '#pong')
 
-            if text == '#get_info_diff':
+            elif text == '#get_info_diff':
                 send_msg(admin_username, str(get_info_diff))
 
-            if text.startswith('#push_order'):
+            elif text.startswith('#push_order'):
                 command = text.split(' ')[1]
                 if command in orders:
                     update_order(orders[command])
                     send_msg(admin_username, 'Команда ' + command + ' применена')
                 else:
                     send_msg(admin_username, 'Команда ' + command + ' не распознана')
+
+            elif text.startswith('#captcha'):
+                command = text.split(' ')[1]
+                if command in captcha_answers:
+                    action_list.append(captcha_answers[command])
+                    bot_enabled = True
+                    send_msg(admin_username, 'Команда ' + command + ' применена')
+                else:
+                    send_msg(admin_username, 'Команда ' + command + ' не распознана')
+
 
 
 def send_msg(to, message):
