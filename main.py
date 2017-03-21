@@ -102,7 +102,7 @@ les_enabled = True
 corovan_enabled = True
 order_enabled = True
 auto_def_enabled = True
-
+donate_enabled = False
 
 @coroutine
 def work_with_message(receiver):
@@ -145,6 +145,7 @@ def parse_text(text, username, message_id):
     global corovan_enabled
     global order_enabled
     global auto_def_enabled
+    global donate_enabled
     if bot_enabled and username == bot_username:
         log('Получили сообщение от бота. Проверяем условия')
 
@@ -171,6 +172,10 @@ def parse_text(text, username, message_id):
                     # прекращаем все действия
                     state = re.search('Состояние:\\n(.*)$', text)
                     if auto_def_enabled and time() - current_order['time'] > 3600:
+                        if donate_enabled:
+                            gold = int(re.search('💰([0-9]+)', text).group(1))
+                            log('Донат {0} золота в казну замка'.format(gold))
+                            action_list.append('/donate {0}'.format(gold))
                         update_order(castle)
                     return
             log('Времени достаточно')
@@ -228,6 +233,8 @@ def parse_text(text, username, message_id):
                     '#disable_order - Выключить приказы',
                     '#enable_auto_def - Включить авто деф',
                     '#disable_auto_def - Выключить авто деф',
+                    '#enable_donate - Включить донат',
+                    '#disable_donate - Выключить донат',
                     '#status - Получить статус',
                     '#hero - Получить информацию о герое',
                     '#push_order - Добавить приказ ({0})'.format(','.join(orders)),
@@ -287,6 +294,14 @@ def parse_text(text, username, message_id):
                 auto_def_enabled = False
                 send_msg(admin_username, 'Авто деф успешно выключен')
 
+            # Вкл/выкл авто донат
+            elif text == '#enable_donate':
+                donate_enabled = True
+                send_msg(admin_username, 'Донат успешно включен')
+            elif text == '#disable_donate':
+                donate_enabled = False
+                send_msg(admin_username, 'Донат успешно выключен')
+
             # Получить статус
             elif text == '#status':
                 send_msg(admin_username, '\n'.join([
@@ -296,7 +311,8 @@ def parse_text(text, username, message_id):
                     'Корованы включены: {3}',
                     'Приказы включены: {4}',
                     'Авто деф включен: {5}',
-                ]).format(bot_enabled, arena_enabled, les_enabled, corovan_enabled, order_enabled, auto_def_enabled))
+                    'Донат включен: {5}',
+                ]).format(bot_enabled, arena_enabled, les_enabled, corovan_enabled, order_enabled, auto_def_enabled, donate_enabled))
 
             # Информация о герое
             elif text == '#hero':
