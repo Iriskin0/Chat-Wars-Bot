@@ -120,6 +120,9 @@ def work_with_message(receiver):
 def queue_worker():
     global get_info_diff
     lt_info = 0
+    # гребаная магия
+    print(sender.contacts_search(bot_username))
+    sleep(3)
     while True:
         try:
             if time() - lt_info > get_info_diff:
