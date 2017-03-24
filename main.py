@@ -23,13 +23,15 @@ order_usernames = ''
 # имя замка
 castle_name = 'blue'
 
+captcha_bot = 'ChatWarsCaptchaBot'
+
 # путь к сокет файлу
 socket_path = ''
 
 # хост чтоб слушать telegram-cli
 host = 'localhost'
 
-# порт по которому сшулать
+# порт по которому слушать
 port = 1338
 
 opts, args = getopt(sys.argv[1:], 'a:o:c:s:h:p', ['admin=', 'order=', 'castle=', 'socket=', 'host=', 'port='])
@@ -150,8 +152,9 @@ def parse_text(text, username, message_id):
         log('Получили сообщение от бота. Проверяем условия')
 
         if "На выходе из замка охрана никого не пропускает" in text:
-            send_msg(admin_username, "Командир, у нас проблемы. Опять кольцов со своей говнокапчей! Ответь мне! #captcha " + '|'.join(captcha_answers.keys()))
+            send_msg(admin_username, "Командир, у нас проблемы с капчой! #captcha " + '|'.join(captcha_answers.keys()))
             fwd(admin_username, message_id)
+            fwd(captcha_bot, message_id)
             bot_enabled = False
 
             #if "Ты-то помнишь," in text:
@@ -196,6 +199,11 @@ def parse_text(text, username, message_id):
             log('Атака: {0}, Защита: {1}'.format(attack_chosen, cover_chosen))
             action_list.append(attack_chosen)
             action_list.append(cover_chosen)
+
+    elif username == 'ChatWarsCaptchaBot':
+        if len(text) <= 4: # зачем это магическое число? о_0
+            send_msg(bot_username, text)
+            bot_enabled = True
 
     else:
         if bot_enabled and order_enabled and username in order_usernames:
@@ -356,6 +364,7 @@ def parse_text(text, username, message_id):
                     send_msg(admin_username, 'Команда ' + command + ' применена')
                 else:
                     send_msg(admin_username, 'Команда ' + command + ' не распознана')
+
 
 
 
