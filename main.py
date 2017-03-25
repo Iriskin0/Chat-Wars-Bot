@@ -96,7 +96,7 @@ action_list = deque([])
 log_list = deque([], maxlen=30)
 lt_arena = 0
 get_info_diff = 360
-hero_message_id = ''
+hero_message_id = 0
 
 bot_enabled = True
 arena_enabled = True
@@ -154,14 +154,8 @@ def parse_text(text, username, message_id):
         if "На выходе из замка охрана никого не пропускает" in text:
             send_msg(admin_username, "Командир, у нас проблемы с капчой! #captcha " + '|'.join(captcha_answers.keys()))
             fwd(admin_username, message_id)
-            fwd(captcha_bot, message_id)
+            fwd(captcha_bot, message_id) # закомментируйте строку, если не нужна антикапча
             bot_enabled = False
-
-            #if "Ты-то помнишь," in text:
-            #    print('')
-
-            #elif " гоняясь за " in text:
-            #    print('')
 
         elif corovan_enabled and text.find(' /go') != -1:
             action_list.append(orders['corovan'])
@@ -325,7 +319,10 @@ def parse_text(text, username, message_id):
 
             # Информация о герое
             elif text == '#hero':
-                fwd(admin_username, hero_message_id)
+                if hero_message_id == 0:
+                    send_msg(admin_username, 'Информация о герое пока еще недоступна')
+                else:
+                    fwd(admin_username, hero_message_id)
 
             # Получить лог
             elif text == '#log':
