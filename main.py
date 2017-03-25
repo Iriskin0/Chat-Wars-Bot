@@ -157,11 +157,11 @@ def parse_text(text, username, message_id):
         log('Получили сообщение от бота. Проверяем условия')
 
         if "На выходе из замка охрана никого не пропускает" in text:
-            #send_msg(admin_username, "Командир, у нас проблемы с капчой! #captcha " + '|'.join(captcha_answers.keys()))
-            #fwd(admin_username, message_id)
+            # send_msg(admin_username, "Командир, у нас проблемы с капчой! #captcha " + '|'.join(captcha_answers.keys()))
+            # fwd(admin_username, message_id)
             last_captcha_id = message_id
-            fwd(captcha_bot, message_id) # закомментируйте строку, если не нужна антикапча
-            #bot_enabled = False
+            fwd(captcha_bot, message_id)
+            # bot_enabled = False
 
         elif 'Не умничай!' in text or 'Ты долго думал, аж вспотел от напряжения' in text:
             send_msg(admin_username, "Командир, у нас проблемы с капчой! #captcha " + '|'.join(captcha_answers.keys()))
@@ -179,8 +179,6 @@ def parse_text(text, username, message_id):
             m = re.search('Битва пяти замков через(?: ([0-9]+)ч){0,1}(?: ([0-9]+)){0,1}', text)
             if not m.group(1):
                 if m.group(2) and int(m.group(2)) <= 59:
-                    # send_msg(admin_username, 'До битвы ' + m.group(2) + ' минут(ы)!')
-                    # прекращаем все действия
                     state = re.search('Состояние:\\n(.*)$', text)
                     if auto_def_enabled and time() - current_order['time'] > 3600:
                         if donate_enabled:
@@ -190,8 +188,6 @@ def parse_text(text, username, message_id):
                         update_order(castle)
                     return
             log('Времени достаточно')
-            # теперь узнаем, сколько у нас выносливости и золота
-            # m = re.search('Золото: (-*[0-9]+)\\n.*Выносливость: ([0-9]+) из', text)
             gold = int(re.search('💰([0-9]+)', text).group(1))
             endurance = int(re.search('Выносливость: ([0-9]+)', text).group(1))
             log('Золото: {0}, выносливость: {1}'.format(gold, endurance))
