@@ -201,8 +201,9 @@ def parse_text(text, username, message_id):
             action_list.append(cover_chosen)
 
     elif username == 'ChatWarsCaptchaBot':
-        if len(text) <= 4: # зачем это магическое число? о_0
-            send_msg(bot_username, text)
+        if len(text) <= 4 and text in captcha_answers.values():
+            sleep(3)
+            action_list.append(text)
             bot_enabled = True
 
     else:
@@ -364,8 +365,6 @@ def parse_text(text, username, message_id):
                     send_msg(admin_username, 'Команда ' + command + ' применена')
                 else:
                     send_msg(admin_username, 'Команда ' + command + ' не распознана')
-
-
 
 
 def send_msg(to, message):
