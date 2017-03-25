@@ -97,6 +97,7 @@ log_list = deque([], maxlen=30)
 lt_arena = 0
 get_info_diff = 360
 hero_message_id = 0
+last_captcha_id = 0
 
 bot_enabled = True
 arena_enabled = True
@@ -151,14 +152,24 @@ def parse_text(text, username, message_id):
     global order_enabled
     global auto_def_enabled
     global donate_enabled
+    global last_captcha_id
     if bot_enabled and username == bot_username:
         log('Получили сообщение от бота. Проверяем условия')
 
         if "На выходе из замка охрана никого не пропускает" in text:
-            send_msg(admin_username, "Командир, у нас проблемы с капчой! #captcha " + '|'.join(captcha_answers.keys()))
-            fwd(admin_username, message_id)
+            #send_msg(admin_username, "Командир, у нас проблемы с капчой! #captcha " + '|'.join(captcha_answers.keys()))
+            #fwd(admin_username, message_id)
+            last_captcha_id = message_id
             fwd(captcha_bot, message_id) # закомментируйте строку, если не нужна антикапча
+            #bot_enabled = False
+
+        elif 'Не умничай!' in text or 'Ты долго думал, аж вспотел от напряжения' in text:
+            send_msg(admin_username, "Командир, у нас проблемы с капчой! #captcha " + '|'.join(captcha_answers.keys()))
             bot_enabled = False
+            if last_captcha_id != 0:
+                fwd(admin_username, message_id)
+            else:
+                send_msg(admin_username, 'Капча не найдена?')
 
         elif corovan_enabled and text.find(' /go') != -1:
             action_list.append(orders['corovan'])
@@ -201,7 +212,7 @@ def parse_text(text, username, message_id):
         if len(text) <= 4 and text in captcha_answers.values():
             sleep(3)
             action_list.append(text)
-            bot_enabled = True
+            #bot_enabled = True
 
     else:
         if bot_enabled and order_enabled and username in order_usernames:
