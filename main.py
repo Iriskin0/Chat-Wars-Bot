@@ -159,6 +159,7 @@ def parse_text(text, username, message_id):
         if "На выходе из замка охрана никого не пропускает" in text:
             # send_msg(admin_username, "Командир, у нас проблемы с капчой! #captcha " + '|'.join(captcha_answers.keys()))
             # fwd(admin_username, message_id)
+            action_list.clear()
             last_captcha_id = message_id
             fwd(captcha_bot, message_id)
             # bot_enabled = False
@@ -208,7 +209,7 @@ def parse_text(text, username, message_id):
         if len(text) <= 4 and text in captcha_answers.values():
             sleep(3)
             action_list.append(text)
-            #bot_enabled = True
+            bot_enabled = True
 
     else:
         if bot_enabled and order_enabled and username in order_usernames:
