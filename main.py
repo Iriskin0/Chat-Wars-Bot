@@ -160,9 +160,9 @@ def parse_text(text, username, message_id):
             # send_msg(admin_username, "Командир, у нас проблемы с капчой! #captcha " + '|'.join(captcha_answers.keys()))
             # fwd(admin_username, message_id)
             action_list.clear()
+            bot_enabled = False
             last_captcha_id = message_id
             fwd(captcha_bot, message_id)
-            # bot_enabled = False
 
         elif 'Не умничай!' in text or 'Ты долго думал, аж вспотел от напряжения' in text:
             send_msg(admin_username, "Командир, у нас проблемы с капчой! #captcha " + '|'.join(captcha_answers.keys()))
