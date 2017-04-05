@@ -34,7 +34,7 @@ host = 'localhost'
 # порт по которому слушать
 port = 1338
 
-opts, args = getopt(sys.argv[1:], 'a:o:c:s:h:p', ['admin=', 'order=', 'castle=', 'socket=', 'host=', 'port='])
+opts, args = getopt(sys.argv[1:], 'a:o:c:s:h:p:g', ['admin=', 'order=', 'castle=', 'socket=', 'host=', 'port=', 'gold='])
 
 for opt, arg in opts:
     if opt in ('-a', '--admin'):
@@ -49,6 +49,8 @@ for opt, arg in opts:
         host = arg
     elif opt in ('-p', '--port'):
         port = int(arg)
+    elif opt in ('-g', '--gold'):
+        gold_to_left = int(arg)
 
 orders = {
     'red': '🇮🇲',
@@ -98,10 +100,12 @@ lt_arena = 0
 get_info_diff = 360
 hero_message_id = 0
 last_captcha_id = 0
+gold_to_left = 0
 
 bot_enabled = True
 arena_enabled = True
 les_enabled = True
+peshera_enabled = False
 corovan_enabled = True
 order_enabled = True
 auto_def_enabled = True
@@ -113,7 +117,9 @@ def work_with_message(receiver):
         msg = (yield)
         try:
             if msg['event'] == 'message' and 'text' in msg and msg['peer'] is not None:
-                parse_text(msg['text'], msg['sender']['username'], msg['id'])
+                # Проверяем наличие юзернейма, чтобы не вываливался Exception
+                if 'username' in msg['sender']:
+                    parse_text(msg['text'], msg['sender']['username'], msg['id'])
         except Exception as err:
             log('Ошибка coroutine: {0}'.format(err))
 
@@ -149,6 +155,7 @@ def parse_text(text, username, message_id):
     global bot_enabled
     global arena_enabled
     global les_enabled
+    global peshera_enabled
     global corovan_enabled
     global order_enabled
     global auto_def_enabled
@@ -183,18 +190,20 @@ def parse_text(text, username, message_id):
                 if m.group(2) and int(m.group(2)) <= 59:
                     state = re.search('Состояние:\\n(.*)$', text)
                     if auto_def_enabled and time() - current_order['time'] > 3600:
-                        if donate_enabled:
-                            gold = int(re.search('💰([0-9]+)', text).group(1))
-                            log('Донат {0} золота в казну замка'.format(gold))
-                            action_list.append('/donate {0}'.format(gold))
+                        gold = int(re.search('💰([0-9]+)', text).group(1))
+                        if gold > gold_to_left:
+                            log('Донат {0} золота в казну замка'.format(gold-gold_to_left))
+                            action_list.append('/donate {0}'.format(gold-gold_to_left))
                         update_order(castle)
                     return
             log('Времени достаточно')
             gold = int(re.search('💰([0-9]+)', text).group(1))
             endurance = int(re.search('Выносливость: ([0-9]+)', text).group(1))
             log('Золото: {0}, выносливость: {1}'.format(gold, endurance))
-            if les_enabled and endurance >= 2 and orders['peshera'] not in action_list:
+            if peshera_enabled and endurance >= 2 and orders['peshera'] not in action_list:
                 action_list.append(orders['peshera'])
+            elif les_enabled and endurance >= 1 and orders['les'] not in action_list:
+                action_list.append(orders['les'])
             elif arena_enabled and gold >= 5 and '🔎Поиск соперника' not in action_list and time() - lt_arena > 3600:
                 action_list.append('🔎Поиск соперника')
 
@@ -242,6 +251,8 @@ def parse_text(text, username, message_id):
                     '#disable_arena - Выключить арену',
                     '#enable_les - Включить лес',
                     '#disable_les - Выключить лес',
+                    '#enable_peshera - Включить пещеры',
+                    '#disable_peshera - Выключить пещеры',
                     '#enable_corovan - Включить корован',
                     '#disable_corovan - Выключить корован',
                     '#enable_order - Включить приказы',
@@ -285,7 +296,15 @@ def parse_text(text, username, message_id):
                 les_enabled = False
                 send_msg(admin_username, 'Лес успешно выключен')
 
-            # Вкл/выкл корована
+            # Вкл/выкл пещеры
+            elif text == '#enable_peshera':
+                peshera_enabled = True
+                send_msg(admin_username, 'Пещеры успешно включены')
+            elif text == '#disable_peshera':
+                peshera_enabled = False
+                send_msg(admin_username, 'Пещеры успешно выключены')
+
+                # Вкл/выкл корована
             elif text == '#enable_corovan':
                 corovan_enabled = True
                 send_msg(admin_username, 'Корованы успешно включены')
@@ -320,14 +339,15 @@ def parse_text(text, username, message_id):
             # Получить статус
             elif text == '#status':
                 send_msg(admin_username, '\n'.join([
-                    'Бот включен: {0}',
-                    'Арена включена: {1}',
-                    'Лес включен: {2}',
-                    'Корованы включены: {3}',
-                    'Приказы включены: {4}',
-                    'Авто деф включен: {5}',
-                    'Донат включен: {5}',
-                ]).format(bot_enabled, arena_enabled, les_enabled, corovan_enabled, order_enabled, auto_def_enabled, donate_enabled))
+                    '🤖Бот включен: {0}',
+                    '📯Арена включена: {1}',
+                    '🌲Лес включен: {2}',
+                    '🕸Пещеры включены: {3}',
+                    '🐫Корованы включены: {4}',
+                    '🇪🇺Приказы включены: {5}',
+                    '🛡Авто деф включен: {6}',
+                    '💰Донат включен: {7}',
+                ]).format(bot_enabled, arena_enabled, les_enabled, peshera_enabled, corovan_enabled, order_enabled, auto_def_enabled, donate_enabled))
 
             # Информация о герое
             elif text == '#hero':
