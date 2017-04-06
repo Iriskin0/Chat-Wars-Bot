@@ -13,7 +13,7 @@
   2) Устанавливаем pip3: sudo apt-get install python3-pip<br />
   3) Устанавливаем pytg для 3 питона: pip3 install pytg<br />
   4) Запускаем telegram-cli: ./telegram-cli --json -P 1338<br />
-  5) Качаем этот скрипт и запускаем: `python3 ./main.py --admin "ваш ник" --order "ник игроков/ботов, выдающих приказы, через запятую без пробелов" --castle "blue/red/black/white/yellow"` --gold "сколько золота оставлять в кармане при автодонате"<br />
+  5) Качаем этот скрипт и запускаем: `python3 ./main.py --admin "ваш ник" --order "ник игроков/ботов, выдающих приказы, через запятую без пробелов" --castle "blue/red/black/white/yellow" --gold "сколько золота оставлять в кармане при автодонате"`<br />
   6) Для работы с капчой, начинаем общение с @ChatWarsCaptchaBot (тестируется) 
   
 Команды боту от админа:<br />
