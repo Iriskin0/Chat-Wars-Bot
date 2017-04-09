@@ -190,10 +190,11 @@ def parse_text(text, username, message_id):
                 if m.group(2) and int(m.group(2)) <= 59:
                     state = re.search('Состояние:\\n(.*)$', text)
                     if auto_def_enabled and time() - current_order['time'] > 3600:
-                        gold = int(re.search('💰([0-9]+)', text).group(1))
-                        if gold > gold_to_left:
-                            log('Донат {0} золота в казну замка'.format(gold-gold_to_left))
-                            action_list.append('/donate {0}'.format(gold-gold_to_left))
+                        if donate_enabled:
+                            gold = int(re.search('💰([0-9]+)', text).group(1))
+                            if gold > gold_to_left:
+                                log('Донат {0} золота в казну замка'.format(gold-gold_to_left))
+                                action_list.append('/donate {0}'.format(gold-gold_to_left))
                         update_order(castle)
                     return
             log('Времени достаточно')
