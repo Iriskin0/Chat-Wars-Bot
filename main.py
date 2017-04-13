@@ -229,6 +229,7 @@ def parse_text(text, username, message_id):
             elif arena_enabled and not arena_delay and gold >= 5:
                 curhour = datetime.now(tz).hour
                 if 9 <= curhour <= 23:
+                    action_list.append('📯Арена')
                     action_list.append('🔎Поиск соперника')
 
         elif arena_enabled and text.find('выбери точку атаки и точку защиты') != -1:
