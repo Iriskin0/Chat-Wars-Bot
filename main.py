@@ -5,11 +5,12 @@ from pytg.utils import coroutine
 from collections import deque
 from time import time, sleep
 from getopt import getopt
+from datetime import datetime
 import sys
-import datetime
 import re
 import _thread
 import random
+import pytz
 
 # username игрового бота
 bot_username = 'ChatWarsBot'
@@ -111,6 +112,10 @@ order_enabled = True
 auto_def_enabled = True
 donate_enabled = False
 
+arena_delay = False
+arena_delay_day = -1
+tz = pytz.timezone('Europe/Moscow')
+
 @coroutine
 def work_with_message(receiver):
     while True:
@@ -126,6 +131,9 @@ def work_with_message(receiver):
 
 def queue_worker():
     global get_info_diff
+    global arena_delay
+    global arena_delay_day
+    global tz
     lt_info = 0
     # гребаная магия
     print(sender.contacts_search(bot_username))
@@ -134,6 +142,8 @@ def queue_worker():
     while True:
         try:
             if time() - lt_info > get_info_diff:
+                if arena_delay and arena_delay_day != datetime.now(tz).day:
+                    arena_delay = False
                 lt_info = time()
                 get_info_diff = random.randint(400, 800)
                 if bot_enabled:
@@ -161,6 +171,9 @@ def parse_text(text, username, message_id):
     global auto_def_enabled
     global donate_enabled
     global last_captcha_id
+    global arena_delay
+    global arena_delay_day
+    global tz
     if bot_enabled and username == bot_username:
         log('Получили сообщение от бота. Проверяем условия')
 
@@ -179,6 +192,11 @@ def parse_text(text, username, message_id):
                 fwd(admin_username, message_id)
             else:
                 send_msg(admin_username, 'Капча не найдена?')
+
+        elif 'На сегодня ты уже своё отвоевал. Приходи завтра.' in text:
+            arena_delay = True
+            arena_delay_day = datetime.now(tz).day
+            log("Отдыхаем денек от арены")
 
         elif corovan_enabled and text.find(' /go') != -1:
             action_list.append(orders['corovan'])
@@ -208,8 +226,10 @@ def parse_text(text, username, message_id):
                     action_list.append(orders['peshera'])
             elif les_enabled and not peshera_enabled and endurance >= 1 and orders['les'] not in action_list:
                 action_list.append(orders['les'])
-            elif arena_enabled and gold >= 5 and '🔎Поиск соперника' not in action_list:
-                action_list.append('🔎Поиск соперника')
+            elif arena_enabled and not arena_delay and gold >= 5:
+                curhour = datetime.now(tz).hour
+                if 9 <= curhour <= 23:
+                    action_list.append('🔎Поиск соперника')
 
         elif arena_enabled and text.find('выбери точку атаки и точку защиты') != -1:
             lt_arena = time()
@@ -369,11 +389,11 @@ def parse_text(text, username, message_id):
                 send_msg(admin_username, str(lt_arena))
 
             elif text == '#order':
-                text_date = datetime.datetime.fromtimestamp(current_order['time']).strftime('%Y-%m-%d %H:%M:%S')
+                text_date = datetime.fromtimestamp(current_order['time']).strftime('%Y-%m-%d %H:%M:%S')
                 send_msg(admin_username, current_order['order'] + ' ' + text_date)
 
             elif text == '#time':
-                text_date = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+                text_date = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
                 send_msg(admin_username, text_date)
 
             elif text == '#ping':
@@ -419,7 +439,7 @@ def update_order(order):
 
 
 def log(text):
-    message = '{0:%Y-%m-%d %H:%M:%S}'.format(datetime.datetime.now()) + ' ' + text
+    message = '{0:%Y-%m-%d %H:%M:%S}'.format(datetime.now()) + ' ' + text
     print(message)
     log_list.append(message)
 
