@@ -231,6 +231,9 @@ def parse_text(text, username, message_id):
                 if 9 <= curhour <= 23:
                     action_list.append('📯Арена')
                     action_list.append('🔎Поиск соперника')
+                    log('Топаем на арену')
+                else:
+                    log('По часам не проходим на арену. Сейчас ' + str(curhour) + ' часов')
 
         elif arena_enabled and text.find('выбери точку атаки и точку защиты') != -1:
             lt_arena = time()
