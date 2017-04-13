@@ -105,7 +105,7 @@ gold_to_left = 0
 bot_enabled = True
 arena_enabled = True
 les_enabled = True
-peshera_enabled = False
+peshera_enabled = True
 corovan_enabled = True
 order_enabled = True
 auto_def_enabled = True
@@ -201,11 +201,14 @@ def parse_text(text, username, message_id):
             gold = int(re.search('💰([0-9]+)', text).group(1))
             endurance = int(re.search('Выносливость: ([0-9]+)', text).group(1))
             log('Золото: {0}, выносливость: {1}'.format(gold, endurance))
-            if peshera_enabled and endurance >= 2 and orders['peshera'] not in action_list:
-                action_list.append(orders['peshera'])
-            elif les_enabled and endurance >= 1 and orders['les'] not in action_list:
+            if peshera_enabled and endurance >= 2:
+                if les_enabled:
+                    action_list.append(random.choice([orders['peshera'], orders['les']]))
+                else:
+                    action_list.append(orders['peshera'])
+            elif les_enabled and not peshera_enabled and endurance >= 1 and orders['les'] not in action_list:
                 action_list.append(orders['les'])
-            elif arena_enabled and gold >= 5 and '🔎Поиск соперника' not in action_list and time() - lt_arena > 3600:
+            elif arena_enabled and gold >= 5 and '🔎Поиск соперника' not in action_list:
                 action_list.append('🔎Поиск соперника')
 
         elif arena_enabled and text.find('выбери точку атаки и точку защиты') != -1:
