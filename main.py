@@ -68,7 +68,8 @@ orders = {
     'cover_symbol': '🛡',
     'hero': '🏅Герой',
     'corovan': '/go',
-    'peshera': '🕸Пещера'
+    'peshera': '🕸Пещера',
+    'quests': '🗺 Квесты'
 }
 
 captcha_answers = {
@@ -223,10 +224,13 @@ def parse_text(text, username, message_id):
             log('Золото: {0}, выносливость: {1}'.format(gold, endurance))
             if peshera_enabled and endurance >= 2 and not arena_running:
                 if les_enabled:
+                    action_list.append(orders['quests'])
                     action_list.append(random.choice([orders['peshera'], orders['les']]))
                 else:
+                    action_list.append(orders['quests'])
                     action_list.append(orders['peshera'])
             elif les_enabled and not peshera_enabled and endurance >= 1 and orders['les'] not in action_list and not arena_running:
+                action_list.append(orders['quests'])
                 action_list.append(orders['les'])
             elif arena_enabled and not arena_delay and gold >= 5 and not arena_running:
                 curhour = datetime.now(tz).hour
