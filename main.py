@@ -239,7 +239,7 @@ def parse_text(text, username, message_id):
                     log('По часам не проходим на арену. Сейчас ' + str(curhour) + ' часов')
 
         elif arena_enabled and text.find('выбери точку атаки и точку защиты') != -1:
-             arena_running = True #на случай, если арена запущена руками
+            arena_running = True #на случай, если арена запущена руками
             lt_arena = time()
             attack_chosen = arena_attack[random.randint(0, 2)]
             cover_chosen = arena_cover[random.randint(0, 2)]
