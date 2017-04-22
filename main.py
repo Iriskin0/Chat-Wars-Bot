@@ -198,6 +198,7 @@ def parse_text(text, username, message_id):
             arena_delay = True
             arena_delay_day = datetime.now(tz).day
             log("Отдыхаем денек от арены")
+            arena_running = False
 
         elif corovan_enabled and text.find(' /go') != -1:
             action_list.append(orders['corovan'])
