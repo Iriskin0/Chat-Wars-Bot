@@ -119,7 +119,7 @@ gold_to_left = 0
 bot_enabled = True
 arena_enabled = True
 les_enabled = True
-peshera_enabled = True
+peshera_enabled = False
 corovan_enabled = True
 order_enabled = True
 auto_def_enabled = True
@@ -225,6 +225,11 @@ def parse_text(text, username, message_id):
                     if auto_def_enabled and time() - current_order['time'] > 3600:
                         if donate_enabled:
                             gold = int(re.search('💰([0-9]+)', text).group(1))
+                            inv = int(re.search('🎒Рюкзак:([0-9]+)/([0-9]+)', text)
+                            log ('Рюкзак: {0} / {1}'.format(inv.group(1),inv.group(2)))
+                            if inv.group(1) == inv.group(2):
+                                log('Полный рюкзак - Донат в лавку отключен')
+                                donate_buying = False          
                             if gold > gold_to_left:
                                 if donate_buying:
                                     log('Донат {0} золота в лавку'.format(gold-gold_to_left))
@@ -247,17 +252,17 @@ def parse_text(text, username, message_id):
             gold = int(re.search('💰([0-9]+)', text).group(1))
             endurance = int(re.search('Выносливость: ([0-9]+)', text).group(1))
             log('Золото: {0}, выносливость: {1}'.format(gold, endurance))
-            if peshera_enabled and endurance >= 2 and not arena_running:
+            if peshera_enabled and endurance >= 2 and not arena_running and text.find('🛌Отдых') != -1:
                 if les_enabled:
                     action_list.append(orders['quests'])
                     action_list.append(random.choice([orders['peshera'], orders['les']]))
                 else:
                     action_list.append(orders['quests'])
                     action_list.append(orders['peshera'])
-            elif les_enabled and not peshera_enabled and endurance >= 1 and orders['les'] not in action_list and not arena_running:
+            elif les_enabled and not peshera_enabled and endurance >= 1 and orders['les'] not in action_list and not arena_running and text.find('🛌Отдых') != -1:
                 action_list.append(orders['quests'])
                 action_list.append(orders['les'])
-            elif arena_enabled and not arena_delay and gold >= 5 and not arena_running and text.find('Вернешься через') == -1:
+            elif arena_enabled and not arena_delay and gold >= 5 and not arena_running and text.find('🛌Отдых') != -1:
                 curhour = datetime.now(tz).hour
                 if 9 <= curhour <= 23:
                     log('Включаем флаг - арена запущена')
@@ -305,8 +310,7 @@ def parse_text(text, username, message_id):
             elif text.find('🛡') != -1:
                 update_order(castle)
 
-            # send_msg(admin_username, 'Получили команду ' + current_order['order'] + ' от ' + username)
-
+        # send_msg(admin_username, 'Получили команду ' + current_order['order'] + ' от ' + username)
         if username == admin_username:
             if text == '#help':
                 send_msg(admin_username, '\n'.join([
@@ -371,7 +375,7 @@ def parse_text(text, username, message_id):
                 peshera_enabled = False
                 send_msg(admin_username, 'Пещеры успешно выключены')
 
-                # Вкл/выкл корована
+            # Вкл/выкл корована
             elif text == '#enable_corovan':
                 corovan_enabled = True
                 send_msg(admin_username, 'Корованы успешно включены')
@@ -403,7 +407,7 @@ def parse_text(text, username, message_id):
                 donate_enabled = False
                 send_msg(admin_username, 'Донат успешно выключен')
                 
-            # Вкл/выкл донат в магазин
+            # Вкл/выкл донат в лавку
             elif text == '#enable_buy':
                 donate_buying = True
                 send_msg(admin_username, 'Донат в лавку успешно включен')
@@ -472,14 +476,11 @@ def parse_text(text, username, message_id):
                 else:
                     send_msg(admin_username, 'Команда ' + command + ' не распознана')
 
-
 def send_msg(to, message):
     sender.send_msg('@' + to, message)
 
-
 def fwd(to, message_id):
     sender.fwd('@' + to, message_id)
-
 
 def update_order(order):
     current_order['order'] = order
@@ -490,12 +491,10 @@ def update_order(order):
         action_list.append(orders['attack'])
     action_list.append(order)
 
-
 def log(text):
     message = '{0:%Y-%m-%d %H:%M:%S}'.format(datetime.now()) + ' ' + text
     print(message)
     log_list.append(message)
-
 
 if __name__ == '__main__':
     receiver = Receiver(sock=socket_path) if socket_path else Receiver(port=port)
