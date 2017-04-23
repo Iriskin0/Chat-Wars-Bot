@@ -183,6 +183,7 @@ def parse_text(text, username, message_id):
     global order_enabled
     global auto_def_enabled
     global donate_enabled
+    global donate_buying
     global last_captcha_id
     global arena_delay
     global arena_delay_day
