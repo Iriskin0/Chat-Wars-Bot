@@ -33,6 +33,10 @@
     #disable_order - Выключить приказы<br />
     #enable_auto_def - Включить авто деф<br />
     #disable_auto_def - Выключить авто деф<br />
+    #enable_donate - Включить донат<br />
+    #disable_donate - Выключить донат<br />
+    #enable_buy - Включить донат в лавку вместо казны<br />
+    #disable_buy - Вылючить донат в лавку вместо казны<br />
     #status - Получить статус<br />
     #hero - Получить информацию о герое<br />
     #push_order - Добавить приказ<br />
