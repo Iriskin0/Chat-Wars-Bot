@@ -252,6 +252,8 @@ def parse_text(text, username, message_id):
             gold = int(re.search('💰([0-9]+)', text).group(1))
             endurance = int(re.search('Выносливость: ([0-9]+)', text).group(1))
             log('Золото: {0}, выносливость: {1}'.format(gold, endurance))
+            inv = re.search('🎒Рюкзак: ([0-9]+)/([0-9]+)', text)
+            log('Рюкзак: {0} / {1}'.format(inv.group(1),inv.group(2)))
             if peshera_enabled and endurance >= 2 and not arena_running and text.find('🛌Отдых') != -1:
                 if les_enabled:
                     action_list.append(orders['quests'])
