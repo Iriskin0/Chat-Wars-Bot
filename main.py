@@ -68,7 +68,8 @@ orders = {
     'cover_symbol': '🛡',
     'hero': '🏅Герой',
     'corovan': '/go',
-    'peshera': '🕸Пещера'
+    'peshera': '🕸Пещера',
+    'quests': '🗺 Квесты'
 }
 
 captcha_answers = {
@@ -111,7 +112,7 @@ corovan_enabled = True
 order_enabled = True
 auto_def_enabled = True
 donate_enabled = False
-
+arena_running = False
 arena_delay = False
 arena_delay_day = -1
 tz = pytz.timezone('Europe/Moscow')
@@ -174,6 +175,7 @@ def parse_text(text, username, message_id):
     global arena_delay
     global arena_delay_day
     global tz
+    global arena_running
     if bot_enabled and username == bot_username:
         log('Получили сообщение от бота. Проверяем условия')
 
@@ -197,6 +199,7 @@ def parse_text(text, username, message_id):
             arena_delay = True
             arena_delay_day = datetime.now(tz).day
             log("Отдыхаем денек от арены")
+            arena_running = False
 
         elif corovan_enabled and text.find(' /go') != -1:
             action_list.append(orders['corovan'])
@@ -219,16 +222,21 @@ def parse_text(text, username, message_id):
             gold = int(re.search('💰([0-9]+)', text).group(1))
             endurance = int(re.search('Выносливость: ([0-9]+)', text).group(1))
             log('Золото: {0}, выносливость: {1}'.format(gold, endurance))
-            if peshera_enabled and endurance >= 2:
+            if peshera_enabled and endurance >= 2 and not arena_running:
                 if les_enabled:
+                    action_list.append(orders['quests'])
                     action_list.append(random.choice([orders['peshera'], orders['les']]))
                 else:
+                    action_list.append(orders['quests'])
                     action_list.append(orders['peshera'])
-            elif les_enabled and not peshera_enabled and endurance >= 1 and orders['les'] not in action_list:
+            elif les_enabled and not peshera_enabled and endurance >= 1 and orders['les'] not in action_list and not arena_running:
+                action_list.append(orders['quests'])
                 action_list.append(orders['les'])
-            elif arena_enabled and not arena_delay and gold >= 5:
+            elif arena_enabled and not arena_delay and gold >= 5 and not arena_running:
                 curhour = datetime.now(tz).hour
                 if 9 <= curhour <= 23:
+                    log('Включаем флаг - арена запущена')
+                    arena_running = True
                     action_list.append('📯Арена')
                     action_list.append('🔎Поиск соперника')
                     log('Топаем на арену')
@@ -236,12 +244,16 @@ def parse_text(text, username, message_id):
                     log('По часам не проходим на арену. Сейчас ' + str(curhour) + ' часов')
 
         elif arena_enabled and text.find('выбери точку атаки и точку защиты') != -1:
+            arena_running = True #на случай, если арена запущена руками
             lt_arena = time()
             attack_chosen = arena_attack[random.randint(0, 2)]
             cover_chosen = arena_cover[random.randint(0, 2)]
             log('Атака: {0}, Защита: {1}'.format(attack_chosen, cover_chosen))
             action_list.append(attack_chosen)
             action_list.append(cover_chosen)
+        elif text.find('Победил воин') != -1 or text.find('Ничья') != -1:
+            log('Выключаем флаг - арена закончилась')
+            arena_running = False       
 
     elif username == 'ChatWarsCaptchaBot':
         if len(text) <= 4 and text in captcha_answers.values():
@@ -375,7 +387,8 @@ def parse_text(text, username, message_id):
                     '🇪🇺Приказы включены: {5}',
                     '🛡Авто деф включен: {6}',
                     '💰Донат включен: {7}',
-                ]).format(bot_enabled, arena_enabled, les_enabled, peshera_enabled, corovan_enabled, order_enabled, auto_def_enabled, donate_enabled))
+                    'Сейчас на арене: {8}',
+                ]).format(bot_enabled, arena_enabled, les_enabled, peshera_enabled, corovan_enabled, order_enabled, auto_def_enabled, donate_enabled, arena_running))
 
             # Информация о герое
             elif text == '#hero':
