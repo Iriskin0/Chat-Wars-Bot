@@ -35,7 +35,10 @@ host = 'localhost'
 # порт по которому слушать
 port = 1338
 
-opts, args = getopt(sys.argv[1:], 'a:o:c:s:h:p:g', ['admin=', 'order=', 'castle=', 'socket=', 'host=', 'port=', 'gold='])
+# скидывание денег покупкой/продажей барахла
+donate_buying = False
+
+opts, args = getopt(sys.argv[1:], 'a:o:c:s:h:p:g:b', ['admin=', 'order=', 'castle=', 'socket=', 'host=', 'port=', 'gold=', 'buy='])
 
 for opt, arg in opts:
     if opt in ('-a', '--admin'):
@@ -52,6 +55,8 @@ for opt, arg in opts:
         port = int(arg)
     elif opt in ('-g', '--gold'):
         gold_to_left = int(arg)
+    elif opt in ('-b', '--buy'):
+        donate_buying = bool(arg)
 
 orders = {
     'red': '🇮🇲',
@@ -70,6 +75,13 @@ orders = {
     'corovan': '/go',
     'peshera': '🕸Пещера',
     'quests': '🗺 Квесты'
+    'castle_menu': '🏰Замок',
+    'lavka': '🏚Лавка',
+    'snaraga': 'Снаряжение',
+    'mechi': 'Мечи',
+    'shlem': 'Шлем',
+    'sell': 'Скупка предметов',
+    'lvl_def': '+1 🛡Защита' #заготовка под прокачку при левелапе
 }
 
 captcha_answers = {
@@ -214,8 +226,23 @@ def parse_text(text, username, message_id):
                         if donate_enabled:
                             gold = int(re.search('💰([0-9]+)', text).group(1))
                             if gold > gold_to_left:
-                                log('Донат {0} золота в казну замка'.format(gold-gold_to_left))
-                                action_list.append('/donate {0}'.format(gold-gold_to_left))
+                                if donate_buying:
+                                    log('Донат {0} золота магазинон'.format(gold-gold_to_left))
+                                    action_list.append(orders['castle_menu'])
+                                    action_list.append(orders['lavka'])
+                                    action_list.append(orders['shlem'])
+                                    while (gold-gold_to_left)>35:
+                                        gold=gold-35
+                                        log('Тратим 35, остается {0} золота'.format(gold-gold_to_left)) #для контроля
+                                        action_list.append(orders['/buy_helmet2'])
+                                    while (gold-gold_to_left)>0:
+                                        gold=gold-1
+                                        log('Тратим 1, остается {0} золота'.format(gold-gold_to_left)) #для контроля
+                                        action_list.append(orders['/buy_helmet1'])
+                                        action_list.append(orders['/sell_206'])
+                                else:
+                                    log('Донат {0} золота в казну замка'.format(gold-gold_to_left))
+                                    action_list.append('/donate {0}'.format(gold-gold_to_left))
                         update_order(castle)
                     return
             log('Времени достаточно')
@@ -232,7 +259,7 @@ def parse_text(text, username, message_id):
             elif les_enabled and not peshera_enabled and endurance >= 1 and orders['les'] not in action_list and not arena_running:
                 action_list.append(orders['quests'])
                 action_list.append(orders['les'])
-            elif arena_enabled and not arena_delay and gold >= 5 and not arena_running:
+            elif arena_enabled and not arena_delay and gold >= 5 and not arena_running and text.find('Вернешься через') == -1:
                 curhour = datetime.now(tz).hour
                 if 9 <= curhour <= 23:
                     log('Включаем флаг - арена запущена')
@@ -301,6 +328,8 @@ def parse_text(text, username, message_id):
                     '#disable_auto_def - Выключить авто деф',
                     '#enable_donate - Включить донат',
                     '#disable_donate - Выключить донат',
+                    '#enable_buy - Включить покупку/продажу хлама вместо доната в казну',
+                    '#disable_buy - Выключить покупку/продажу хлама вместо доната в казну',
                     '#status - Получить статус',
                     '#hero - Получить информацию о герое',
                     '#push_order - Добавить приказ ({0})'.format(','.join(orders)),
@@ -375,7 +404,15 @@ def parse_text(text, username, message_id):
             elif text == '#disable_donate':
                 donate_enabled = False
                 send_msg(admin_username, 'Донат успешно выключен')
-
+                
+            # Вкл/выкл авто донат
+            elif text == '#enable_donate':
+                donate_enabled = True
+                send_msg(admin_username, 'Донат успешно включен')
+            elif text == '#disable_donate':
+                donate_enabled = False
+                send_msg(admin_username, 'Донат успешно выключен')
+                
             # Получить статус
             elif text == '#status':
                 send_msg(admin_username, '\n'.join([
@@ -388,7 +425,8 @@ def parse_text(text, username, message_id):
                     '🛡Авто деф включен: {6}',
                     '💰Донат включен: {7}',
                     'Сейчас на арене: {8}',
-                ]).format(bot_enabled, arena_enabled, les_enabled, peshera_enabled, corovan_enabled, order_enabled, auto_def_enabled, donate_enabled, arena_running))
+                    'Донат в магазин вместо казны: {9}',
+                ]).format(bot_enabled, arena_enabled, les_enabled, peshera_enabled, corovan_enabled, order_enabled, auto_def_enabled, donate_enabled, arena_running,donate_buying))
 
             # Информация о герое
             elif text == '#hero':
