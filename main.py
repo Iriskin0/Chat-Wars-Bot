@@ -35,7 +35,7 @@ host = 'localhost'
 # порт по которому слушать
 port = 1338
 
-# скидывание денег покупкой/продажей барахла
+# скидывание денег покупкой/продажей шлемов
 donate_buying = False
 
 opts, args = getopt(sys.argv[1:], 'a:o:c:s:h:p:g:b', ['admin=', 'order=', 'castle=', 'socket=', 'host=', 'port=', 'gold=', 'buy='])
@@ -227,19 +227,17 @@ def parse_text(text, username, message_id):
                             gold = int(re.search('💰([0-9]+)', text).group(1))
                             if gold > gold_to_left:
                                 if donate_buying:
-                                    log('Донат {0} золота магазинон'.format(gold-gold_to_left))
+                                    log('Донат {0} золота в лавку'.format(gold-gold_to_left))
                                     action_list.append(orders['castle_menu'])
                                     action_list.append(orders['lavka'])
                                     action_list.append(orders['shlem'])
                                     while (gold-gold_to_left)>35:
                                         gold=gold-35
-                                        log('Тратим 35, остается {0} золота'.format(gold-gold_to_left)) #для контроля
-                                        action_list.append(orders['/buy_helmet2'])
+                                        action_list.append('/buy_helmet2')
                                     while (gold-gold_to_left)>0:
                                         gold=gold-1
-                                        log('Тратим 1, остается {0} золота'.format(gold-gold_to_left)) #для контроля
-                                        action_list.append(orders['/buy_helmet1'])
-                                        action_list.append(orders['/sell_206'])
+                                        action_list.append('/buy_helmet1')
+                                        action_list.append('/sell_206')
                                 else:
                                     log('Донат {0} золота в казну замка'.format(gold-gold_to_left))
                                     action_list.append('/donate {0}'.format(gold-gold_to_left))
@@ -328,8 +326,8 @@ def parse_text(text, username, message_id):
                     '#disable_auto_def - Выключить авто деф',
                     '#enable_donate - Включить донат',
                     '#disable_donate - Выключить донат',
-                    '#enable_buy - Включить покупку/продажу хлама вместо доната в казну',
-                    '#disable_buy - Выключить покупку/продажу хлама вместо доната в казну',
+                    '#enable_buy - Включить донат в лавку вместо казны',
+                    '#disable_buy - Вылючить донат в лавку вместо казны',
                     '#status - Получить статус',
                     '#hero - Получить информацию о герое',
                     '#push_order - Добавить приказ ({0})'.format(','.join(orders)),
@@ -418,15 +416,15 @@ def parse_text(text, username, message_id):
                 send_msg(admin_username, '\n'.join([
                     '🤖Бот включен: {0}',
                     '📯Арена включена: {1}',
-                    '🌲Лес включен: {2}',
-                    '🕸Пещеры включены: {3}',
-                    '🐫Корованы включены: {4}',
-                    '🇪🇺Приказы включены: {5}',
-                    '🛡Авто деф включен: {6}',
-                    '💰Донат включен: {7}',
-                    'Сейчас на арене: {8}',
-                    'Донат в магазин вместо казны: {9}',
-                ]).format(bot_enabled, arena_enabled, les_enabled, peshera_enabled, corovan_enabled, order_enabled, auto_def_enabled, donate_enabled, arena_running,donate_buying))
+                    '🔎Сейчас на арене: {2}',
+                    '🌲Лес включен: {3}',
+                    '🕸Пещеры включены: {4}',
+                    '🐫Корованы включены: {5}',
+                    '🇪🇺Приказы включены: {6}',
+                    '🛡Авто деф включен: {7}',
+                    '💰Донат включен: {8}',
+                    '🏚Донат в лавку вместо казны: {9}',
+                ]).format(bot_enabled, arena_enabled, arena_running, les_enabled, peshera_enabled, corovan_enabled, order_enabled, auto_def_enabled, donate_enabled, donate_buying))
 
             # Информация о герое
             elif text == '#hero':
