@@ -405,13 +405,13 @@ def parse_text(text, username, message_id):
                 donate_enabled = False
                 send_msg(admin_username, 'Донат успешно выключен')
                 
-            # Вкл/выкл авто донат
-            elif text == '#enable_donate':
-                donate_enabled = True
-                send_msg(admin_username, 'Донат успешно включен')
-            elif text == '#disable_donate':
-                donate_enabled = False
-                send_msg(admin_username, 'Донат успешно выключен')
+            # Вкл/выкл донат в магазин
+            elif text == '#enable_buy':
+                donate_buying = True
+                send_msg(admin_username, 'Донат в лавку успешно включен')
+            elif text == '#disable_buy':
+                donate_buying = False
+                send_msg(admin_username, 'Донат в лавку успешно выключен')
                 
             # Получить статус
             elif text == '#status':
