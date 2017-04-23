@@ -166,7 +166,7 @@ def queue_worker():
             if len(action_list):
                 log('Отправляем ' + action_list[0])
                 send_msg(bot_username, action_list.popleft())
-            sleep_time = random.randint(2, 6)
+            sleep_time = random.randint(2, 5)
             sleep(sleep_time)
         except Exception as err:
             log('Ошибка очереди: {0}'.format(err))
@@ -225,9 +225,9 @@ def parse_text(text, username, message_id):
                     if auto_def_enabled and time() - current_order['time'] > 3600:
                         if donate_enabled:
                             gold = int(re.search('💰([0-9]+)', text).group(1))
-                            inv = int(re.search('🎒Рюкзак:([0-9]+)/([0-9]+)', text)
-                            log ('Рюкзак: {0} / {1}'.format(inv.group(1),inv.group(2)))
-                            if inv.group(1) == inv.group(2):
+                            inv = re.search('🎒Рюкзак: ([0-9]+)/([0-9]+)', text)
+                            log('Рюкзак: {0} / {1}'.format(inv.group(1),inv.group(2)))
+                            if int(inv.group(1)) == int(inv.group(2)):
                                 log('Полный рюкзак - Донат в лавку отключен')
                                 donate_buying = False          
                             if gold > gold_to_left:
