@@ -39,7 +39,7 @@ port = 1338
 donate_buying = False
 
 # включить прокачку при левелапе
-lvl_up = off
+lvl_up = 'lvl_off'
 
 opts, args = getopt(sys.argv[1:], 'a:o:c:s:h:p:g:b:l', ['admin=', 'order=', 'castle=', 'socket=', 'host=', 'port=', 'gold=', 'buy=', 'lvlup='])
 
@@ -85,8 +85,9 @@ orders = {
     'snaraga': 'Снаряжение',
     'shlem': 'Шлем',
     'sell': 'Скупка предметов',
-    'defence': '+1 🛡Защита',
-    'attack': '+1 ⚔️Атака'
+    'lvl_def': '+1 🛡Защита',
+    'lvl_atk': '+1 ⚔️Атака',
+    'lvl_off': 'off' #костыль, да
 }
 
 captcha_answers = {
@@ -111,8 +112,6 @@ arena_attack = ['🗡в голову', '🗡по корпусу', '🗡по но
 castle = orders[castle_name]
 # текущий приказ на атаку/защиту, по умолчанию всегда защита, трогать не нужно
 current_order = {'time': 0, 'order': castle}
-# что качаем при левелапе
-lvl = orders[lvl_up]
 
 sender = Sender(sock=socket_path) if socket_path else Sender(host=host,port=port)
 action_list = deque([])
@@ -196,7 +195,7 @@ def parse_text(text, username, message_id):
     global arena_delay_day
     global tz
     global arena_running
-    global lvl
+    global lvl_up
     if bot_enabled and username == bot_username:
         log('Получили сообщение от бота. Проверяем условия')
 
@@ -298,11 +297,11 @@ def parse_text(text, username, message_id):
             log('Выключаем флаг - арена закончилась')
             arena_running = False       
         
-        elif text.find('Жми /level_up') != -1 and lvl != 'off':
+        elif text.find('Жми /level_up') != -1 and lvl_up != 'lvl_off':
             log('получили уровень - поднимаем {0}'.format(lvl))
             arena_running = False       
             action_list.append('/level_up')
-            action_list.append(orders[lvl])
+            action_list.append(orders[lvl_up])
                 
     elif username == 'ChatWarsCaptchaBot':
         if len(text) <= 4 and text in captcha_answers.values():
@@ -351,6 +350,9 @@ def parse_text(text, username, message_id):
                     '#disable_donate - Выключить донат',
                     '#enable_buy - Включить донат в лавку вместо казны',
                     '#disable_buy - Вылючить донат в лавку вместо казны',
+                    "#lvl_atk - качать атаку",
+                    "#lvl_def - качать защиту",
+                    "#lvl_off - ничего не качать",
                     '#status - Получить статус',
                     '#hero - Получить информацию о герое',
                     '#push_order - Добавить приказ ({0})'.format(','.join(orders)),
@@ -434,6 +436,17 @@ def parse_text(text, username, message_id):
                 donate_buying = False
                 send_msg(admin_username, 'Донат в лавку успешно выключен')
                 
+            # что качать при левелапе
+            elif text == '#lvl_atk':
+                lvl_up = 'lvl_at'
+                send_msg(admin_username, 'Качаем атаку')
+            elif text == '#lvl_def':
+                lvl_up = 'lvl_def'
+                send_msg(admin_username, 'Качаем защиту')
+            elif text == '#lvl_off':
+                lvl_up = 'lvl_off'
+                send_msg(admin_username, 'Не качаем ничего')
+                
             # Получить статус
             elif text == '#status':
                 send_msg(admin_username, '\n'.join([
@@ -447,7 +460,8 @@ def parse_text(text, username, message_id):
                     '🛡Авто деф включен: {7}',
                     '💰Донат включен: {8}',
                     '🏚Донат в лавку вместо казны: {9}',
-                ]).format(bot_enabled, arena_enabled, arena_running, les_enabled, peshera_enabled, corovan_enabled, order_enabled, auto_def_enabled, donate_enabled, donate_buying))
+                    '🌟Левелап: {10}',
+                ]).format(bot_enabled, arena_enabled, arena_running, les_enabled, peshera_enabled, corovan_enabled, order_enabled, auto_def_enabled, donate_enabled, donate_buying,lvl))
 
             # Информация о герое
             elif text == '#hero':
