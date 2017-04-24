@@ -38,7 +38,10 @@ port = 1338
 # скидывание денег покупкой/продажей шлемов
 donate_buying = False
 
-opts, args = getopt(sys.argv[1:], 'a:o:c:s:h:p:g:b', ['admin=', 'order=', 'castle=', 'socket=', 'host=', 'port=', 'gold=', 'buy='])
+# включить прокачку при левелапе
+lvl_up = 'lvl_off'
+
+opts, args = getopt(sys.argv[1:], 'a:o:c:s:h:p:g:b:l', ['admin=', 'order=', 'castle=', 'socket=', 'host=', 'port=', 'gold=', 'buy=', 'lvlup='])
 
 for opt, arg in opts:
     if opt in ('-a', '--admin'):
@@ -57,6 +60,8 @@ for opt, arg in opts:
         gold_to_left = int(arg)
     elif opt in ('-b', '--buy'):
         donate_buying = bool(arg)
+    elif opt in ('-l', '--lvlup'):
+        lvl_up = arg        
 
 orders = {
     'red': '🇮🇲',
@@ -80,7 +85,9 @@ orders = {
     'snaraga': 'Снаряжение',
     'shlem': 'Шлем',
     'sell': 'Скупка предметов',
-    'lvl_def': '+1 🛡Защита' #заготовка под прокачку при левелапе
+    'lvl_def': '+1 🛡Защита',
+    'lvl_atk': '+1 ⚔️Атака',
+    'lvl_off': 'Выключен'
 }
 
 captcha_answers = {
@@ -116,7 +123,7 @@ last_captcha_id = 0
 gold_to_left = 0
 
 bot_enabled = True
-arena_enabled = True
+arena_enabled = False
 les_enabled = True
 peshera_enabled = False
 corovan_enabled = True
@@ -188,10 +195,16 @@ def parse_text(text, username, message_id):
     global arena_delay_day
     global tz
     global arena_running
+    global lvl_up
     if bot_enabled and username == bot_username:
         log('Получили сообщение от бота. Проверяем условия')
 
-        if "На выходе из замка охрана никого не пропускает" in text:
+        if text.find('🌟Поздравляем! Новый уровень!') != -1 and lvl_up != 'lvl_off':
+            log('получили уровень - {0}'.format(orders[lvl_up]))
+            action_list.append('/level_up')
+            action_list.append(orders[lvl_up])
+
+        elif "На выходе из замка охрана никого не пропускает" in text:
             # send_msg(admin_username, "Командир, у нас проблемы с капчой! #captcha " + '|'.join(captcha_answers.keys()))
             # fwd(admin_username, message_id)
             action_list.clear()
@@ -254,14 +267,14 @@ def parse_text(text, username, message_id):
             log('Золото: {0}, выносливость: {1}'.format(gold, endurance))
             inv = re.search('🎒Рюкзак: ([0-9]+)/([0-9]+)', text)
             log('Рюкзак: {0} / {1}'.format(inv.group(1),inv.group(2)))
-            if peshera_enabled and endurance >= 2 and not arena_running and text.find('🛌Отдых') != -1:
+            if peshera_enabled and endurance >= 2 and text.find('🛌Отдых') != -1:
                 if les_enabled:
                     action_list.append(orders['quests'])
                     action_list.append(random.choice([orders['peshera'], orders['les']]))
                 else:
                     action_list.append(orders['quests'])
                     action_list.append(orders['peshera'])
-            elif les_enabled and not peshera_enabled and endurance >= 1 and orders['les'] not in action_list and not arena_running and text.find('🛌Отдых') != -1:
+            elif les_enabled and not peshera_enabled and endurance >= 1 and orders['les'] not in action_list and text.find('🛌Отдых') != -1:
                 action_list.append(orders['quests'])
                 action_list.append(orders['les'])
             elif arena_enabled and not arena_delay and gold >= 5 and not arena_running and text.find('🛌Отдых') != -1:
@@ -284,9 +297,10 @@ def parse_text(text, username, message_id):
             log('Атака: {0}, Защита: {1}'.format(attack_chosen, cover_chosen))
             action_list.append(attack_chosen)
             action_list.append(cover_chosen)
+
         elif text.find('Победил воин') != -1 or text.find('Ничья') != -1:
             log('Выключаем флаг - арена закончилась')
-            arena_running = False       
+            arena_running = False
 
     elif username == 'ChatWarsCaptchaBot':
         if len(text) <= 4 and text in captcha_answers.values():
@@ -335,6 +349,9 @@ def parse_text(text, username, message_id):
                     '#disable_donate - Выключить донат',
                     '#enable_buy - Включить донат в лавку вместо казны',
                     '#disable_buy - Вылючить донат в лавку вместо казны',
+                    "#lvl_atk - качать атаку",
+                    "#lvl_def - качать защиту",
+                    "#lvl_off - ничего не качать",
                     '#status - Получить статус',
                     '#hero - Получить информацию о герое',
                     '#push_order - Добавить приказ ({0})'.format(','.join(orders)),
@@ -409,7 +426,7 @@ def parse_text(text, username, message_id):
             elif text == '#disable_donate':
                 donate_enabled = False
                 send_msg(admin_username, 'Донат успешно выключен')
-                
+
             # Вкл/выкл донат в лавку
             elif text == '#enable_buy':
                 donate_buying = True
@@ -417,7 +434,18 @@ def parse_text(text, username, message_id):
             elif text == '#disable_buy':
                 donate_buying = False
                 send_msg(admin_username, 'Донат в лавку успешно выключен')
-                
+
+            # что качать при левелапе
+            elif text == '#lvl_atk':
+                lvl_up = 'lvl_at'
+                send_msg(admin_username, 'Качаем атаку')
+            elif text == '#lvl_def':
+                lvl_up = 'lvl_def'
+                send_msg(admin_username, 'Качаем защиту')
+            elif text == '#lvl_off':
+                lvl_up = 'lvl_off'
+                send_msg(admin_username, 'Не качаем ничего')
+
             # Получить статус
             elif text == '#status':
                 send_msg(admin_username, '\n'.join([
@@ -431,7 +459,9 @@ def parse_text(text, username, message_id):
                     '🛡Авто деф включен: {7}',
                     '💰Донат включен: {8}',
                     '🏚Донат в лавку вместо казны: {9}',
-                ]).format(bot_enabled, arena_enabled, arena_running, les_enabled, peshera_enabled, corovan_enabled, order_enabled, auto_def_enabled, donate_enabled, donate_buying))
+                    '🌟Левелап: {10}',
+                ]).format(bot_enabled, arena_enabled, arena_running, les_enabled, peshera_enabled, corovan_enabled, order_enabled, 
+                          auto_def_enabled, donate_enabled, donate_buying,orders[lvl_up]))
 
             # Информация о герое
             elif text == '#hero':
@@ -479,11 +509,14 @@ def parse_text(text, username, message_id):
                 else:
                     send_msg(admin_username, 'Команда ' + command + ' не распознана')
 
+
 def send_msg(to, message):
     sender.send_msg('@' + to, message)
 
+
 def fwd(to, message_id):
     sender.fwd('@' + to, message_id)
+
 
 def update_order(order):
     current_order['order'] = order
@@ -494,10 +527,12 @@ def update_order(order):
         action_list.append(orders['attack'])
     action_list.append(order)
 
+
 def log(text):
     message = '{0:%Y-%m-%d %H:%M:%S}'.format(datetime.now()) + ' ' + text
     print(message)
     log_list.append(message)
+
 
 if __name__ == '__main__':
     receiver = Receiver(sock=socket_path) if socket_path else Receiver(port=port)
