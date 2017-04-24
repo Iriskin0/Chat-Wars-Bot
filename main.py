@@ -38,7 +38,10 @@ port = 1338
 # скидывание денег покупкой/продажей шлемов
 donate_buying = False
 
-opts, args = getopt(sys.argv[1:], 'a:o:c:s:h:p:g:b', ['admin=', 'order=', 'castle=', 'socket=', 'host=', 'port=', 'gold=', 'buy='])
+# включить прокачку при левелапе
+lvl_up = off
+
+opts, args = getopt(sys.argv[1:], 'a:o:c:s:h:p:g:b:l', ['admin=', 'order=', 'castle=', 'socket=', 'host=', 'port=', 'gold=', 'buy=', 'lvlup='])
 
 for opt, arg in opts:
     if opt in ('-a', '--admin'):
@@ -57,6 +60,8 @@ for opt, arg in opts:
         gold_to_left = int(arg)
     elif opt in ('-b', '--buy'):
         donate_buying = bool(arg)
+    elif opt in ('-l', '--lvlup'):
+        lvl_up = arg        
 
 orders = {
     'red': '🇮🇲',
@@ -80,7 +85,8 @@ orders = {
     'snaraga': 'Снаряжение',
     'shlem': 'Шлем',
     'sell': 'Скупка предметов',
-    'lvl_def': '+1 🛡Защита' #заготовка под прокачку при левелапе
+    'defence': '+1 🛡Защита' #заготовка под прокачку при левелапе
+    'attack': '+1 ⚔️Атака' #заготовка под прокачку при левелапе
 }
 
 captcha_answers = {
@@ -105,6 +111,8 @@ arena_attack = ['🗡в голову', '🗡по корпусу', '🗡по но
 castle = orders[castle_name]
 # текущий приказ на атаку/защиту, по умолчанию всегда защита, трогать не нужно
 current_order = {'time': 0, 'order': castle}
+# что качаем при левелапе
+lvl = orders[lvl_up]
 
 sender = Sender(sock=socket_path) if socket_path else Sender(host=host,port=port)
 action_list = deque([])
@@ -188,6 +196,7 @@ def parse_text(text, username, message_id):
     global arena_delay_day
     global tz
     global arena_running
+    global lvl
     if bot_enabled and username == bot_username:
         log('Получили сообщение от бота. Проверяем условия')
 
@@ -284,10 +293,17 @@ def parse_text(text, username, message_id):
             log('Атака: {0}, Защита: {1}'.format(attack_chosen, cover_chosen))
             action_list.append(attack_chosen)
             action_list.append(cover_chosen)
+
         elif text.find('Победил воин') != -1 or text.find('Ничья') != -1:
             log('Выключаем флаг - арена закончилась')
             arena_running = False       
-
+        
+        elif text.find('Жми /level_up') != -1 and lvl != 'off':
+            log('получили уровень - поднимаем {0}'.format(lvl))
+            arena_running = False       
+            action_list.append('/level_up')
+            action_list.append(orders[lvl])
+                
     elif username == 'ChatWarsCaptchaBot':
         if len(text) <= 4 and text in captcha_answers.values():
             sleep(3)
@@ -479,12 +495,15 @@ def parse_text(text, username, message_id):
                 else:
                     send_msg(admin_username, 'Команда ' + command + ' не распознана')
 
+                    
 def send_msg(to, message):
     sender.send_msg('@' + to, message)
 
+    
 def fwd(to, message_id):
     sender.fwd('@' + to, message_id)
 
+    
 def update_order(order):
     current_order['order'] = order
     current_order['time'] = time()
@@ -494,11 +513,13 @@ def update_order(order):
         action_list.append(orders['attack'])
     action_list.append(order)
 
+    
 def log(text):
     message = '{0:%Y-%m-%d %H:%M:%S}'.format(datetime.now()) + ' ' + text
     print(message)
     log_list.append(message)
 
+    
 if __name__ == '__main__':
     receiver = Receiver(sock=socket_path) if socket_path else Receiver(port=port)
     receiver.start()  # start the Connector.
