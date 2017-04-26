@@ -437,7 +437,7 @@ def parse_text(text, username, message_id):
 
             # что качать при левелапе
             elif text == '#lvl_atk':
-                lvl_up = 'lvl_at'
+                lvl_up = 'lvl_atk'
                 send_msg(admin_username, 'Качаем атаку')
             elif text == '#lvl_def':
                 lvl_up = 'lvl_def'
