@@ -121,12 +121,11 @@ castle = orders[castle_name]
 current_order = {'time': 0, 'order': castle}
 # задаем получателя ответов бота: админ или группа
 if group_name =='':
-	pref = '@'
-	msg_receiver = admin_username
+    pref = '@'
+    msg_receiver = admin_username
 else:
     pref = ''
     msg_receiver = group_name
-
 
 sender = Sender(sock=socket_path) if socket_path else Sender(host=host,port=port)
 action_list = deque([])
@@ -291,9 +290,11 @@ def parse_text(text, username, message_id):
                 else:
                     action_list.append(orders['quests'])
                     action_list.append(orders['peshera'])
+
             elif les_enabled and not peshera_enabled and endurance >= 1 and orders['les'] not in action_list and text.find('🛌Отдых') != -1:
                 action_list.append(orders['quests'])
                 action_list.append(orders['les'])
+
             elif arena_enabled and not arena_delay and gold >= 5 and not arena_running and text.find('🛌Отдых') != -1:
                 curhour = datetime.now(tz).hour
                 if 9 <= curhour <= 23:
