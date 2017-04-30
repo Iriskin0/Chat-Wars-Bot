@@ -41,7 +41,11 @@ donate_buying = False
 # включить прокачку при левелапе
 lvl_up = 'lvl_off'
 
-opts, args = getopt(sys.argv[1:], 'a:o:c:s:h:p:g:b:l', ['admin=', 'order=', 'castle=', 'socket=', 'host=', 'port=', 'gold=', 'buy=', 'lvlup='])
+# имя группы
+group_name = ''
+
+opts, args = getopt(sys.argv[1:], 'a:o:c:s:h:p:g:b:l:n', ['admin=', 'order=', 'castle=', 'socket=', 'host=', 
+                                                        'port=', 'gold=', 'buy=', 'lvlup=', 'group_name='])
 
 for opt, arg in opts:
     if opt in ('-a', '--admin'):
@@ -61,7 +65,10 @@ for opt, arg in opts:
     elif opt in ('-b', '--buy'):
         donate_buying = bool(arg)
     elif opt in ('-l', '--lvlup'):
-        lvl_up = arg        
+        lvl_up = arg
+    elif opt in ('-n', '--group_name'):
+        group_name = arg
+
 
 orders = {
     'red': '🇮🇲',
@@ -112,6 +119,13 @@ arena_attack = ['🗡в голову', '🗡по корпусу', '🗡по но
 castle = orders[castle_name]
 # текущий приказ на атаку/защиту, по умолчанию всегда защита, трогать не нужно
 current_order = {'time': 0, 'order': castle}
+# задаем получателя ответов бота: админ или группа
+if group_name =='':
+    pref = '@'
+    msg_receiver = admin_username
+else:
+    pref = ''
+    msg_receiver = group_name
 
 sender = Sender(sock=socket_path) if socket_path else Sender(host=host,port=port)
 action_list = deque([])
@@ -166,12 +180,12 @@ def queue_worker():
                 lt_info = time()
                 get_info_diff = random.randint(900, 1200)
                 if bot_enabled:
-                    send_msg(bot_username, orders['hero'])
+                    send_msg('@', bot_username, orders['hero'])
                 continue
 
             if len(action_list):
                 log('Отправляем ' + action_list[0])
-                send_msg(bot_username, action_list.popleft())
+                send_msg('@', bot_username, action_list.popleft())
             sleep_time = random.randint(2, 5)
             sleep(sleep_time)
         except Exception as err:
@@ -196,6 +210,8 @@ def parse_text(text, username, message_id):
     global tz
     global arena_running
     global lvl_up
+    global pref
+    global msg_receiver
     if bot_enabled and username == bot_username:
         log('Получили сообщение от бота. Проверяем условия')
 
@@ -205,20 +221,20 @@ def parse_text(text, username, message_id):
             action_list.append(orders[lvl_up])
 
         elif "На выходе из замка охрана никого не пропускает" in text:
-            # send_msg(admin_username, "Командир, у нас проблемы с капчой! #captcha " + '|'.join(captcha_answers.keys()))
-            # fwd(admin_username, message_id)
+            # send_msg('@', admin_username, "Командир, у нас проблемы с капчой! #captcha " + '|'.join(captcha_answers.keys()))
+            # fwd('@', admin_username, message_id)
             action_list.clear()
             bot_enabled = False
             last_captcha_id = message_id
-            fwd(captcha_bot, message_id)
+            fwd('@', captcha_bot, message_id)
 
         elif 'Не умничай!' in text or 'Ты долго думал, аж вспотел от напряжения' in text:
-            send_msg(admin_username, "Командир, у нас проблемы с капчой! #captcha " + '|'.join(captcha_answers.keys()))
+            send_msg('@', admin_username, "Командир, у нас проблемы с капчой! #captcha " + '|'.join(captcha_answers.keys()))
             bot_enabled = False
             if last_captcha_id != 0:
-                fwd(admin_username, message_id)
+                fwd('@', admin_username, message_id)
             else:
-                send_msg(admin_username, 'Капча не найдена?')
+                send_msg('@', admin_username, 'Капча не найдена?')
 
         elif 'На сегодня ты уже своё отвоевал. Приходи завтра.' in text:
             arena_delay = True
@@ -249,11 +265,11 @@ def parse_text(text, username, message_id):
                                     action_list.append(orders['castle_menu'])
                                     action_list.append(orders['lavka'])
                                     action_list.append(orders['shlem'])
-                                    while (gold-gold_to_left)>35:
-                                        gold=gold-35
+                                    while (gold-gold_to_left) >= 35:
+                                        gold = gold-35
                                         action_list.append('/buy_helmet2')
-                                    while (gold-gold_to_left)>0:
-                                        gold=gold-1
+                                    while (gold-gold_to_left) > 0:
+                                        gold = gold-1
                                         action_list.append('/buy_helmet1')
                                         action_list.append('/sell_206')
                                 else:
@@ -274,9 +290,11 @@ def parse_text(text, username, message_id):
                 else:
                     action_list.append(orders['quests'])
                     action_list.append(orders['peshera'])
+
             elif les_enabled and not peshera_enabled and endurance >= 1 and orders['les'] not in action_list and text.find('🛌Отдых') != -1:
                 action_list.append(orders['quests'])
                 action_list.append(orders['les'])
+
             elif arena_enabled and not arena_delay and gold >= 5 and not arena_running and text.find('🛌Отдых') != -1:
                 curhour = datetime.now(tz).hour
                 if 9 <= curhour <= 23:
@@ -327,10 +345,10 @@ def parse_text(text, username, message_id):
             elif text.find('🛡') != -1:
                 update_order(castle)
 
-        # send_msg(admin_username, 'Получили команду ' + current_order['order'] + ' от ' + username)
+        # send_msg(pref, admin_username, 'Получили команду ' + current_order['order'] + ' от ' + username)
         if username == admin_username:
             if text == '#help':
-                send_msg(admin_username, '\n'.join([
+                send_msg(pref, msg_receiver, '\n'.join([
                     '#enable_bot - Включить бота',
                     '#disable_bot - Выключить бота',
                     '#enable_arena - Включить арену',
@@ -366,89 +384,89 @@ def parse_text(text, username, message_id):
             # Вкл/выкл бота
             elif text == '#enable_bot':
                 bot_enabled = True
-                send_msg(admin_username, 'Бот успешно включен')
+                send_msg(pref, msg_receiver, 'Бот успешно включен')
             elif text == '#disable_bot':
                 bot_enabled = False
-                send_msg(admin_username, 'Бот успешно выключен')
+                send_msg(pref, msg_receiver, 'Бот успешно выключен')
 
             # Вкл/выкл арены
             elif text == '#enable_arena':
                 arena_enabled = True
-                send_msg(admin_username, 'Арена успешно включена')
+                send_msg(pref, msg_receiver, 'Арена успешно включена')
             elif text == '#disable_arena':
                 arena_enabled = False
-                send_msg(admin_username, 'Арена успешно выключена')
+                send_msg(pref, msg_receiver, 'Арена успешно выключена')
 
             # Вкл/выкл леса
             elif text == '#enable_les':
                 les_enabled = True
-                send_msg(admin_username, 'Лес успешно включен')
+                send_msg(pref, msg_receiver, 'Лес успешно включен')
             elif text == '#disable_les':
                 les_enabled = False
-                send_msg(admin_username, 'Лес успешно выключен')
+                send_msg(pref, msg_receiver, 'Лес успешно выключен')
 
             # Вкл/выкл пещеры
             elif text == '#enable_peshera':
                 peshera_enabled = True
-                send_msg(admin_username, 'Пещеры успешно включены')
+                send_msg(pref, msg_receiver, 'Пещеры успешно включены')
             elif text == '#disable_peshera':
                 peshera_enabled = False
-                send_msg(admin_username, 'Пещеры успешно выключены')
+                send_msg(pref, msg_receiver, 'Пещеры успешно выключены')
 
             # Вкл/выкл корована
             elif text == '#enable_corovan':
                 corovan_enabled = True
-                send_msg(admin_username, 'Корованы успешно включены')
+                send_msg(pref, msg_receiver, 'Корованы успешно включены')
             elif text == '#disable_corovan':
                 corovan_enabled = False
-                send_msg(admin_username, 'Корованы успешно выключены')
+                send_msg(pref, msg_receiver, 'Корованы успешно выключены')
 
             # Вкл/выкл команд
             elif text == '#enable_order':
                 order_enabled = True
-                send_msg(admin_username, 'Приказы успешно включены')
+                send_msg(pref, msg_receiver, 'Приказы успешно включены')
             elif text == '#disable_order':
                 order_enabled = False
-                send_msg(admin_username, 'Приказы успешно выключены')
+                send_msg(pref, msg_receiver, 'Приказы успешно выключены')
 
             # Вкл/выкл авто деф
             elif text == '#enable_auto_def':
                 auto_def_enabled = True
-                send_msg(admin_username, 'Авто деф успешно включен')
+                send_msg(pref, msg_receiver, 'Авто деф успешно включен')
             elif text == '#disable_auto_def':
                 auto_def_enabled = False
-                send_msg(admin_username, 'Авто деф успешно выключен')
+                send_msg(pref, msg_receiver, 'Авто деф успешно выключен')
 
             # Вкл/выкл авто донат
             elif text == '#enable_donate':
                 donate_enabled = True
-                send_msg(admin_username, 'Донат успешно включен')
+                send_msg(pref, msg_receiver, 'Донат успешно включен')
             elif text == '#disable_donate':
                 donate_enabled = False
-                send_msg(admin_username, 'Донат успешно выключен')
+                send_msg(pref, msg_receiver, 'Донат успешно выключен')
 
             # Вкл/выкл донат в лавку
             elif text == '#enable_buy':
                 donate_buying = True
-                send_msg(admin_username, 'Донат в лавку успешно включен')
+                send_msg(pref, msg_receiver, 'Донат в лавку успешно включен')
             elif text == '#disable_buy':
                 donate_buying = False
-                send_msg(admin_username, 'Донат в лавку успешно выключен')
+                send_msg(pref, msg_receiver, 'Донат в лавку успешно выключен')
 
             # что качать при левелапе
             elif text == '#lvl_atk':
                 lvl_up = 'lvl_atk'
-                send_msg(admin_username, 'Качаем атаку')
+                send_msg(pref, msg_receiver, 'Качаем атаку')
             elif text == '#lvl_def':
                 lvl_up = 'lvl_def'
-                send_msg(admin_username, 'Качаем защиту')
+                send_msg(pref, msg_receiver, 'Качаем защиту')
             elif text == '#lvl_off':
                 lvl_up = 'lvl_off'
-                send_msg(admin_username, 'Не качаем ничего')
+                send_msg(pref, msg_receiver, 'Не качаем ничего')
 
             # Получить статус
             elif text == '#status':
-                send_msg(admin_username, '\n'.join([
+                send_msg(pref, msg_receiver, '\n'.join([
                     '🤖Бот включен: {0}',
                     '📯Арена включена: {1}',
                     '🔎Сейчас на арене: {2}',
@@ -466,56 +484,56 @@ def parse_text(text, username, message_id):
             # Информация о герое
             elif text == '#hero':
                 if hero_message_id == 0:
-                    send_msg(admin_username, 'Информация о герое пока еще недоступна')
+                    send_msg(pref, msg_receiver, 'Информация о герое пока еще недоступна')
                 else:
-                    fwd(admin_username, hero_message_id)
+                    fwd(pref, msg_receiver, hero_message_id)
 
             # Получить лог
             elif text == '#log':
-                send_msg(admin_username, '\n'.join(log_list))
+                send_msg(pref, msg_receiver, '\n'.join(log_list))
                 log_list.clear()
 
             elif text == '#lt_arena':
-                send_msg(admin_username, str(lt_arena))
+                send_msg(pref, msg_receiver, str(lt_arena))
 
             elif text == '#order':
                 text_date = datetime.fromtimestamp(current_order['time']).strftime('%Y-%m-%d %H:%M:%S')
-                send_msg(admin_username, current_order['order'] + ' ' + text_date)
+                send_msg(pref, msg_receiver, current_order['order'] + ' ' + text_date)
 
             elif text == '#time':
                 text_date = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-                send_msg(admin_username, text_date)
+                send_msg(pref, msg_receiver, text_date)
 
             elif text == '#ping':
-                send_msg(admin_username, '#pong')
+                send_msg(pref, msg_receiver, '#pong')
 
             elif text == '#get_info_diff':
-                send_msg(admin_username, str(get_info_diff))
+                send_msg(pref, msg_receiver, str(get_info_diff))
 
             elif text.startswith('#push_order'):
                 command = text.split(' ')[1]
                 if command in orders:
                     update_order(orders[command])
-                    send_msg(admin_username, 'Команда ' + command + ' применена')
+                    send_msg(pref, msg_receiver, 'Команда ' + command + ' применена')
                 else:
-                    send_msg(admin_username, 'Команда ' + command + ' не распознана')
+                    send_msg(pref, msg_receiver, 'Команда ' + command + ' не распознана')
 
             elif text.startswith('#captcha'):
                 command = text.split(' ')[1]
                 if command in captcha_answers:
                     action_list.append(captcha_answers[command])
                     bot_enabled = True
-                    send_msg(admin_username, 'Команда ' + command + ' применена')
+                    send_msg('@', admin_username, 'Команда ' + command + ' применена')
                 else:
-                    send_msg(admin_username, 'Команда ' + command + ' не распознана')
+                    send_msg('@', admin_username, 'Команда ' + command + ' не распознана')
 
 
-def send_msg(to, message):
-    sender.send_msg('@' + to, message)
+def send_msg(pref, to, message):
+    sender.send_msg(pref + to, message)
 
 
-def fwd(to, message_id):
-    sender.fwd('@' + to, message_id)
+def fwd(pref, to, message_id):
+    sender.fwd(pref + to, message_id)
 
 
 def update_order(order):
