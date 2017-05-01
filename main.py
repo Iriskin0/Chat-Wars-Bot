@@ -76,6 +76,8 @@ orders = {
     'white': '🇨🇾',
     'yellow': '🇻🇦',
     'blue': '🇪🇺',
+    'mint': '🇲🇴',
+    'twilight': '🇰🇮',
     'lesnoi_fort': '🌲Лесной форт',
     'les': '🌲Лес',
     'gorni_fort': '⛰Горный форт',
@@ -338,6 +340,10 @@ def parse_text(text, username, message_id):
                 update_order(orders['yellow'])
             elif text.find(orders['blue']) != -1:
                 update_order(orders['blue'])
+            elif text.find(orders['mint']) != -1:
+                update_order(orders['mint'])
+            elif text.find(orders['twilight']) != -1:
+                update_order(orders['twilight'])
             elif text.find('🌲') != -1:
                 update_order(orders['lesnoi_fort'])
             elif text.find('⛰') != -1:
