@@ -247,9 +247,9 @@ def parse_text(text, username, message_id):
         elif corovan_enabled and text.find(' /go') != -1:
             action_list.append(orders['corovan'])
 
-        elif text.find('Битва пяти замков через') != -1:
+        elif text.find('Битва семи замков через') != -1:
             hero_message_id = message_id
-            m = re.search('Битва пяти замков через(?: ([0-9]+)ч){0,1}(?: ([0-9]+)){0,1}', text)
+            m = re.search('Битва семи замков через(?: ([0-9]+)ч){0,1}(?: ([0-9]+)){0,1}', text)
             if not m.group(1):
                 if m.group(2) and int(m.group(2)) <= 59:
                     state = re.search('Состояние:\\n(.*)$', text)
@@ -285,6 +285,8 @@ def parse_text(text, username, message_id):
             log('Золото: {0}, выносливость: {1}'.format(gold, endurance))
             inv = re.search('🎒Рюкзак: ([0-9]+)/([0-9]+)', text)
             log('Рюкзак: {0} / {1}'.format(inv.group(1),inv.group(2)))
+            if text.find('🛌Отдых') != -1 and arena_running:
+                arena_running = False
             if peshera_enabled and endurance >= 2 and text.find('🛌Отдых') != -1:
                 if les_enabled:
                     action_list.append(orders['quests'])
