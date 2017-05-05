@@ -140,7 +140,7 @@ last_captcha_id = 0
 gold_to_left = 0
 
 bot_enabled = True
-arena_enabled = False
+arena_enabled = True
 les_enabled = True
 peshera_enabled = False
 corovan_enabled = True
@@ -256,8 +256,8 @@ def parse_text(text, username, message_id):
             m = re.search('Битва семи замков через(?: ([0-9]+)ч){0,1}(?: ([0-9]+)){0,1}', text)
             if not m.group(1):
                 if m.group(2) and int(m.group(2)) <= 59:
-                    state = re.search('Состояние:\\n(.*)$', text)
-                    if auto_def_enabled and time() - current_order['time'] > 3600:
+                    state = re.search('Состояние:\n(.*)', text).group(1)
+                    if auto_def_enabled and time() - current_order['time'] > 3600 and 'Отдых' in state:
                         if donate_enabled:
                             gold = int(re.search('💰([0-9]+)', text).group(1))
                             inv = re.search('🎒Рюкзак: ([0-9]+)/([0-9]+)', text)
@@ -272,10 +272,10 @@ def parse_text(text, username, message_id):
                                     action_list.append(orders['lavka'])
                                     action_list.append(orders['shlem'])
                                     while (gold-gold_to_left) >= 35:
-                                        gold = gold-35
+                                        gold -= 35
                                         action_list.append('/buy_helmet2')
                                     while (gold-gold_to_left) > 0:
-                                        gold = gold-1
+                                        gold -= 1
                                         action_list.append('/buy_helmet1')
                                         action_list.append('/sell_206')
                                 else:
