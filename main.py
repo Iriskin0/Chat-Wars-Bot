@@ -44,8 +44,8 @@ lvl_up = 'lvl_off'
 # имя группы
 group_name = ''
 
-opts, args = getopt(sys.argv[1:], 'a:o:c:s:h:p:g:b:l:n', ['admin=', 'order=', 'castle=', 'socket=', 'host=', 
-                                                        'port=', 'gold=', 'buy=', 'lvlup=', 'group_name='])
+opts, args = getopt(sys.argv[1:], 'a:o:c:s:h:p:g:b:l:n', ['admin=', 'order=', 'castle=', 'socket=', 'host=', 'port=',
+                                                          'gold=', 'buy=', 'lvlup=', 'group_name='])
 
 for opt, arg in opts:
     if opt in ('-a', '--admin'):
@@ -68,6 +68,7 @@ for opt, arg in opts:
         lvl_up = arg
     elif opt in ('-n', '--group_name'):
         group_name = arg
+
 
 
 orders = {
@@ -146,6 +147,8 @@ corovan_enabled = True
 order_enabled = True
 auto_def_enabled = True
 donate_enabled = False
+quest_fight_enabled = True
+
 arena_running = False
 arena_delay = False
 arena_delay_day = -1
@@ -214,6 +217,7 @@ def parse_text(text, username, message_id):
     global lvl_up
     global pref
     global msg_receiver
+    global quest_fight_enabled
     if bot_enabled and username == bot_username:
         log('Получили сообщение от бота. Проверяем условия')
 
@@ -322,6 +326,10 @@ def parse_text(text, username, message_id):
             log('Выключаем флаг - арена закончилась')
             arena_running = False
 
+        elif quest_fight_enabled and text.find('/fight') != -1:
+            c = re.search('(\/fight.*)', text).group(1)
+            action_list.append(c)
+
     elif username == 'ChatWarsCaptchaBot':
         if len(text) <= 4 and text in captcha_answers.values():
             sleep(3)
@@ -371,6 +379,8 @@ def parse_text(text, username, message_id):
                     '#disable_auto_def - Выключить авто деф',
                     '#enable_donate - Включить донат',
                     '#disable_donate - Выключить донат',
+                    '#enable_quest_fight - Включить битву во время квестов',
+                    '#disable_quest_fight - Выключить битву во время квестов',
                     '#enable_buy - Включить донат в лавку вместо казны',
                     '#disable_buy - Вылючить донат в лавку вместо казны',
                     "#lvl_atk - качать атаку",
@@ -458,6 +468,14 @@ def parse_text(text, username, message_id):
             elif text == '#disable_buy':
                 donate_buying = False
                 send_msg(pref, msg_receiver, 'Донат в лавку успешно выключен')
+
+            # Вкл/выкл битву по время квеста
+            elif text == '#enable_quest_fight':
+                quest_fight_enabled = True
+                send_msg(pref, msg_receiver, 'Битва включена')
+            elif text == '#disable_quest_fight':
+                quest_fight_enabled = False
+                send_msg(pref, msg_receiver, 'Битва отключена')
 
             # что качать при левелапе
             elif text == '#lvl_atk':
