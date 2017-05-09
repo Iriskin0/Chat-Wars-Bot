@@ -257,7 +257,7 @@ def write_config(new):
     global quest_fight_enabled
     section=str(bot_user_id)
     if new == 1:
-        config.addsection(section)
+        config.add_section(section)
     config.set(section, 'bot_enabled', str(bot_enabled))
     config.set(section, 'arena_enabled', str(arena_enabled))
     config.set(section, 'les_enabled', str(les_enabled))
@@ -514,7 +514,7 @@ def parse_text(text, username, message_id):
                 send_msg(pref, msg_receiver, 'Пещеры успешно включены')
             elif text == '#disable_peshera':
                 peshera_enabled = False
-				write_config(0)
+                write_config(0)
                 send_msg(pref, msg_receiver, 'Пещеры успешно выключены')
 
             # Вкл/выкл корована
@@ -524,7 +524,7 @@ def parse_text(text, username, message_id):
                 send_msg(pref, msg_receiver, 'Корованы успешно включены')
             elif text == '#disable_corovan':
                 corovan_enabled = False
-				write_config(0)
+                write_config(0)
                 send_msg(pref, msg_receiver, 'Корованы успешно выключены')
 
             # Вкл/выкл команд
