@@ -329,6 +329,7 @@ def parse_text(text, username, message_id):
         elif quest_fight_enabled and text.find('/fight') != -1:
             c = re.search('(\/fight.*)', text).group(1)
             action_list.append(c)
+            fwd(pref, msg_receiver, message_id)
 
     elif username == 'ChatWarsCaptchaBot':
         if len(text) <= 4 and text in captcha_answers.values():
@@ -358,6 +359,9 @@ def parse_text(text, username, message_id):
                 update_order(orders['gorni_fort'])
             elif text.find('🛡') != -1:
                 update_order(castle)
+            elif quest_fight_enabled and text.find('/fight') != -1:
+                c = re.search('(\/fight.*)', text).group(1)
+                action_list.append(c)
 
         # send_msg(pref, admin_username, 'Получили команду ' + current_order['order'] + ' от ' + username)
         if username == admin_username:
