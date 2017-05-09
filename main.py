@@ -254,6 +254,8 @@ def write_config():
     global lvl_up
     global quest_fight_enabled
     section=str(bot_user_id)
+	if config.has_section(section):
+	    config.remove_section(section)
     config.add_section(section)
     config.set(section, 'bot_enabled', str(bot_enabled))
     config.set(section, 'arena_enabled', str(arena_enabled))
