@@ -44,8 +44,8 @@ lvl_up = 'lvl_off'
 # имя группы
 group_name = ''
 
-opts, args = getopt(sys.argv[1:], 'a:o:c:s:h:p:g:b:l:n', ['admin=', 'order=', 'castle=', 'socket=', 'host=', 
-                                                        'port=', 'gold=', 'buy=', 'lvlup=', 'group_name='])
+opts, args = getopt(sys.argv[1:], 'a:o:c:s:h:p:g:b:l:n', ['admin=', 'order=', 'castle=', 'socket=', 'host=', 'port=',
+                                                          'gold=', 'buy=', 'lvlup=', 'group_name='])
 
 for opt, arg in opts:
     if opt in ('-a', '--admin'):
@@ -70,12 +70,15 @@ for opt, arg in opts:
         group_name = arg
 
 
+
 orders = {
     'red': '🇮🇲',
     'black': '🇬🇵',
     'white': '🇨🇾',
     'yellow': '🇻🇦',
     'blue': '🇪🇺',
+    'mint': '🇲🇴',
+    'twilight': '🇰🇮',
     'lesnoi_fort': '🌲Лесной форт',
     'les': '🌲Лес',
     'gorni_fort': '⛰Горный форт',
@@ -137,13 +140,15 @@ last_captcha_id = 0
 gold_to_left = 0
 
 bot_enabled = True
-arena_enabled = False
+arena_enabled = True
 les_enabled = True
 peshera_enabled = False
 corovan_enabled = True
 order_enabled = True
 auto_def_enabled = True
 donate_enabled = False
+quest_fight_enabled = True
+
 arena_running = False
 arena_delay = False
 arena_delay_day = -1
@@ -212,6 +217,7 @@ def parse_text(text, username, message_id):
     global lvl_up
     global pref
     global msg_receiver
+    global quest_fight_enabled
     if bot_enabled and username == bot_username:
         log('Получили сообщение от бота. Проверяем условия')
 
@@ -245,13 +251,13 @@ def parse_text(text, username, message_id):
         elif corovan_enabled and text.find(' /go') != -1:
             action_list.append(orders['corovan'])
 
-        elif text.find('Битва пяти замков через') != -1:
+        elif text.find('Битва семи замков через') != -1:
             hero_message_id = message_id
-            m = re.search('Битва пяти замков через(?: ([0-9]+)ч){0,1}(?: ([0-9]+)){0,1}', text)
+            m = re.search('Битва семи замков через(?: ([0-9]+)ч){0,1}(?: ([0-9]+)){0,1}', text)
             if not m.group(1):
                 if m.group(2) and int(m.group(2)) <= 59:
-                    state = re.search('Состояние:\\n(.*)$', text)
-                    if auto_def_enabled and time() - current_order['time'] > 3600:
+                    state = re.search('Состояние:\n(.*)', text).group(1)
+                    if auto_def_enabled and time() - current_order['time'] > 3600 and 'Отдых' in state:
                         if donate_enabled:
                             gold = int(re.search('💰([0-9]+)', text).group(1))
                             inv = re.search('🎒Рюкзак: ([0-9]+)/([0-9]+)', text)
@@ -266,10 +272,10 @@ def parse_text(text, username, message_id):
                                     action_list.append(orders['lavka'])
                                     action_list.append(orders['shlem'])
                                     while (gold-gold_to_left) >= 35:
-                                        gold = gold-35
+                                        gold -= 35
                                         action_list.append('/buy_helmet2')
                                     while (gold-gold_to_left) > 0:
-                                        gold = gold-1
+                                        gold -= 1
                                         action_list.append('/buy_helmet1')
                                         action_list.append('/sell_206')
                                 else:
@@ -320,6 +326,10 @@ def parse_text(text, username, message_id):
             log('Выключаем флаг - арена закончилась')
             arena_running = False
 
+        elif quest_fight_enabled and text.find('/fight') != -1:
+            c = re.search('(\/fight.*)', text).group(1)
+            action_list.append(c)
+
     elif username == 'ChatWarsCaptchaBot':
         if len(text) <= 4 and text in captcha_answers.values():
             sleep(3)
@@ -338,6 +348,10 @@ def parse_text(text, username, message_id):
                 update_order(orders['yellow'])
             elif text.find(orders['blue']) != -1:
                 update_order(orders['blue'])
+            elif text.find(orders['mint']) != -1:
+                update_order(orders['mint'])
+            elif text.find(orders['twilight']) != -1:
+                update_order(orders['twilight'])
             elif text.find('🌲') != -1:
                 update_order(orders['lesnoi_fort'])
             elif text.find('⛰') != -1:
@@ -365,6 +379,8 @@ def parse_text(text, username, message_id):
                     '#disable_auto_def - Выключить авто деф',
                     '#enable_donate - Включить донат',
                     '#disable_donate - Выключить донат',
+                    '#enable_quest_fight - Включить битву во время квестов',
+                    '#disable_quest_fight - Выключить битву во время квестов',
                     '#enable_buy - Включить донат в лавку вместо казны',
                     '#disable_buy - Вылючить донат в лавку вместо казны',
                     "#lvl_atk - качать атаку",
@@ -452,6 +468,14 @@ def parse_text(text, username, message_id):
             elif text == '#disable_buy':
                 donate_buying = False
                 send_msg(pref, msg_receiver, 'Донат в лавку успешно выключен')
+
+            # Вкл/выкл битву по время квеста
+            elif text == '#enable_quest_fight':
+                quest_fight_enabled = True
+                send_msg(pref, msg_receiver, 'Битва включена')
+            elif text == '#disable_quest_fight':
+                quest_fight_enabled = False
+                send_msg(pref, msg_receiver, 'Битва отключена')
 
             # что качать при левелапе
             elif text == '#lvl_atk':
