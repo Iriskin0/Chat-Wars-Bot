@@ -11,6 +11,7 @@ import re
 import _thread
 import random
 import pytz
+import configparser
 
 # username игрового бота
 bot_username = 'ChatWarsBot'
@@ -43,6 +44,14 @@ lvl_up = 'lvl_off'
 
 # имя группы
 group_name = ''
+
+config = configparser.ConfigParser()
+
+# имя файла с конфигурациями
+config.read('bot_config.cfg')
+
+# user_id бота, используется для поиска конфига
+bot_user_id = ''
 
 opts, args = getopt(sys.argv[1:], 'a:o:c:s:h:p:g:b:l:n', ['admin=', 'order=', 'castle=', 'socket=', 'host=', 'port=',
                                                           'gold=', 'buy=', 'lvlup=', 'group_name='])
@@ -156,10 +165,22 @@ tz = pytz.timezone('Europe/Moscow')
 
 @coroutine
 def work_with_message(receiver):
+    global bot_user_id
     while True:
         msg = (yield)
         try:
             if msg['event'] == 'message' and 'text' in msg and msg['peer'] is not None:
+                if bot_user_id == '' and msg['sender']['username'] == bot_username:
+                    bot_user_id = msg['receiver']['peer_id']
+                    log('user_id найден: {0}'.format(bot_user_id))
+                    if config.has_section(str(bot_user_id)):
+                        log('Конфиг найден')
+                        read_config()
+                        log('Конфиг загружен')
+                    else:
+                        log('Конфиг не найден')
+                        write_config(1)
+                        log('Новый конфиг создан')
                 # Проверяем наличие юзернейма, чтобы не вываливался Exception
                 if 'username' in msg['sender']:
                     parse_text(msg['text'], msg['sender']['username'], msg['id'])
@@ -196,7 +217,60 @@ def queue_worker():
         except Exception as err:
             log('Ошибка очереди: {0}'.format(err))
 
-
+def read_config():
+    global config
+    global bot_user_id
+    global bot_enabled
+    global arena_enabled
+    global les_enabled
+    global peshera_enabled
+    global corovan_enabled
+    global auto_def_enabled
+    global donate_enabled
+    global donate_buying
+    global lvl_up
+    global quest_fight_enabled
+    section=str(bot_user_id)
+    bot_enabled=config.getboolean(section, 'bot_enabled')
+    arena_enabled=config.getboolean(section, 'arena_enabled')
+    les_enabled=config.getboolean(section, 'les_enabled')
+    peshera_enabled=config.getboolean(section, 'peshera_enabled')
+    corovan_enabled=config.getboolean(section, 'corovan_enabled')
+    auto_def_enabled=config.getboolean(section, 'auto_def_enabled')
+    donate_enabled=config.getboolean(section, 'donate_enabled')
+    donate_buying=config.getboolean(section, 'donate_buying')
+    lvl_up=config.get(section, 'lvl_up')
+    quest_fight_enabled=config.getboolean(section, 'quest_fight_enabled')
+    
+def write_config(new):
+    global config
+    global bot_user_id
+    global bot_enabled
+    global arena_enabled
+    global les_enabled
+    global peshera_enabled
+    global corovan_enabled
+    global auto_def_enabled
+    global donate_enabled
+    global donate_buying
+    global lvl_up
+    global quest_fight_enabled
+    section=str(bot_user_id)
+    if new == 1:
+        config.addsection(section)
+    config.set(section, 'bot_enabled', str(bot_enabled))
+    config.set(section, 'arena_enabled', str(arena_enabled))
+    config.set(section, 'les_enabled', str(les_enabled))
+    config.set(section, 'peshera_enabled', str(peshera_enabled))
+    config.set(section, 'corovan_enabled', str(corovan_enabled))
+    config.set(section, 'auto_def_enabled', str(auto_def_enabled))
+    config.set(section, 'donate_enabled', str(donate_enabled))
+    config.set(section, 'donate_buying', str(donate_buying))
+    config.set(section, 'lvl_up', str(lvl_up))
+    config.set(section, 'quest_fight_enabled', str(quest_fight_enabled))
+    with open('bot_config.cfg','w') as configfile:
+        config.write(configfile)
+    
 def parse_text(text, username, message_id):
     global lt_arena
     global hero_message_id
@@ -289,6 +363,8 @@ def parse_text(text, username, message_id):
             log('Золото: {0}, выносливость: {1}'.format(gold, endurance))
             inv = re.search('🎒Рюкзак: ([0-9]+)/([0-9]+)', text)
             log('Рюкзак: {0} / {1}'.format(inv.group(1),inv.group(2)))
+            if text.find('🛌Отдых') != -1 and arena_running:
+                arena_running = False
             if peshera_enabled and endurance >= 2 and text.find('🛌Отдых') != -1:
                 if les_enabled:
                     action_list.append(orders['quests'])
@@ -404,41 +480,51 @@ def parse_text(text, username, message_id):
             # Вкл/выкл бота
             elif text == '#enable_bot':
                 bot_enabled = True
+                write_config(0)
                 send_msg(pref, msg_receiver, 'Бот успешно включен')
             elif text == '#disable_bot':
                 bot_enabled = False
+                write_config(0)
                 send_msg(pref, msg_receiver, 'Бот успешно выключен')
 
             # Вкл/выкл арены
             elif text == '#enable_arena':
                 arena_enabled = True
+                write_config(0)
                 send_msg(pref, msg_receiver, 'Арена успешно включена')
             elif text == '#disable_arena':
                 arena_enabled = False
+                write_config(0)
                 send_msg(pref, msg_receiver, 'Арена успешно выключена')
 
             # Вкл/выкл леса
             elif text == '#enable_les':
                 les_enabled = True
+                write_config(0)
                 send_msg(pref, msg_receiver, 'Лес успешно включен')
             elif text == '#disable_les':
                 les_enabled = False
+                write_config(0)
                 send_msg(pref, msg_receiver, 'Лес успешно выключен')
 
             # Вкл/выкл пещеры
             elif text == '#enable_peshera':
                 peshera_enabled = True
+                write_config(0)
                 send_msg(pref, msg_receiver, 'Пещеры успешно включены')
             elif text == '#disable_peshera':
                 peshera_enabled = False
+				write_config(0)
                 send_msg(pref, msg_receiver, 'Пещеры успешно выключены')
 
             # Вкл/выкл корована
             elif text == '#enable_corovan':
                 corovan_enabled = True
+                write_config(0)
                 send_msg(pref, msg_receiver, 'Корованы успешно включены')
             elif text == '#disable_corovan':
                 corovan_enabled = False
+				write_config(0)
                 send_msg(pref, msg_receiver, 'Корованы успешно выключены')
 
             # Вкл/выкл команд
@@ -452,44 +538,55 @@ def parse_text(text, username, message_id):
             # Вкл/выкл авто деф
             elif text == '#enable_auto_def':
                 auto_def_enabled = True
+                write_config(0)
                 send_msg(pref, msg_receiver, 'Авто деф успешно включен')
             elif text == '#disable_auto_def':
                 auto_def_enabled = False
+                write_config(0)
                 send_msg(pref, msg_receiver, 'Авто деф успешно выключен')
 
             # Вкл/выкл авто донат
             elif text == '#enable_donate':
                 donate_enabled = True
+                write_config(0)
                 send_msg(pref, msg_receiver, 'Донат успешно включен')
             elif text == '#disable_donate':
                 donate_enabled = False
+                write_config(0)
                 send_msg(pref, msg_receiver, 'Донат успешно выключен')
 
             # Вкл/выкл донат в лавку
             elif text == '#enable_buy':
                 donate_buying = True
+                write_config(0)
                 send_msg(pref, msg_receiver, 'Донат в лавку успешно включен')
             elif text == '#disable_buy':
                 donate_buying = False
+                write_config(0)
                 send_msg(pref, msg_receiver, 'Донат в лавку успешно выключен')
 
             # Вкл/выкл битву по время квеста
             elif text == '#enable_quest_fight':
                 quest_fight_enabled = True
+                write_config(0)
                 send_msg(pref, msg_receiver, 'Битва включена')
             elif text == '#disable_quest_fight':
                 quest_fight_enabled = False
+                write_config(0)
                 send_msg(pref, msg_receiver, 'Битва отключена')
 
             # что качать при левелапе
             elif text == '#lvl_atk':
                 lvl_up = 'lvl_atk'
+                write_config(0)
                 send_msg(pref, msg_receiver, 'Качаем атаку')
             elif text == '#lvl_def':
                 lvl_up = 'lvl_def'
+                write_config(0)
                 send_msg(pref, msg_receiver, 'Качаем защиту')
             elif text == '#lvl_off':
                 lvl_up = 'lvl_off'
+                write_config(0)
                 send_msg(pref, msg_receiver, 'Не качаем ничего')
 
             # Получить статус
