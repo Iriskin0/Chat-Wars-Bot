@@ -257,7 +257,7 @@ def write_config(new):
     global quest_fight_enabled
     section=str(bot_user_id)
     if new == 1:
-        config.add_section(section)
+        config.addsection(section)
     config.set(section, 'bot_enabled', str(bot_enabled))
     config.set(section, 'arena_enabled', str(arena_enabled))
     config.set(section, 'les_enabled', str(les_enabled))
