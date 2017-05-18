@@ -364,7 +364,7 @@ def parse_text(text, username, message_id):
             log('Рюкзак: {0} / {1}'.format(inv.group(1),inv.group(2)))
             if text.find('🛌Отдых') != -1 and arena_running:
                 arena_running = False
-            if peshera_enabled and endurance >= 2 and text.find('🛌Отдых') != -1:
+            if peshera_enabled and endurance >= 2:
                 if les_enabled:
                     action_list.append(orders['quests'])
                     action_list.append(random.choice([orders['peshera'], orders['les']]))
@@ -372,11 +372,11 @@ def parse_text(text, username, message_id):
                     action_list.append(orders['quests'])
                     action_list.append(orders['peshera'])
 
-            elif les_enabled and not peshera_enabled and endurance >= 1 and orders['les'] not in action_list and text.find('🛌Отдых') != -1:
+            elif les_enabled and not peshera_enabled and endurance >= 1 and orders['les'] not in action_list:
                 action_list.append(orders['quests'])
                 action_list.append(orders['les'])
 
-            elif arena_enabled and not arena_delay and gold >= 5 and not arena_running and text.find('🛌Отдых') != -1:
+            elif arena_enabled and not arena_delay and gold >= 5 and not arena_running:
                 curhour = datetime.now(tz).hour
                 if 9 <= curhour <= 23:
                     log('Включаем флаг - арена запущена')
