@@ -332,7 +332,7 @@ def parse_text(text, username, message_id):
                     state = re.search('Состояние:\n(.*)', text).group(1)
                     if auto_def_enabled and time() - current_order['time'] > 3600 and 'Отдых' in state:
                         if donate_enabled:
-                            gold = int(re.search('💰([0-9]+)', text).group(1))
+                            gold = int(re.search('💰(-?[0-9]+)', text).group(1))
                             inv = re.search('🎒Рюкзак: ([0-9]+)/([0-9]+)', text)
                             log('Рюкзак: {0} / {1}'.format(inv.group(1),inv.group(2)))
                             if int(inv.group(1)) == int(inv.group(2)):
@@ -357,7 +357,7 @@ def parse_text(text, username, message_id):
                         update_order(castle)
                     return
             log('Времени достаточно')
-            gold = int(re.search('💰([0-9]+)', text).group(1))
+            gold = int(re.search('💰(-?[0-9]+)', text).group(1))
             endurance = int(re.search('Выносливость: ([0-9]+)', text).group(1))
             log('Золото: {0}, выносливость: {1}'.format(gold, endurance))
             inv = re.search('🎒Рюкзак: ([0-9]+)/([0-9]+)', text)
