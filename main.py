@@ -394,6 +394,7 @@ def parse_text(text, username, message_id):
             attack_chosen = arena_attack[random.randint(0, 2)]
             cover_chosen = arena_cover[random.randint(0, 2)]
             log('Атака: {0}, Защита: {1}'.format(attack_chosen, cover_chosen))
+            sleep(random.randint(2,6))
             action_list.append(attack_chosen)
             action_list.append(cover_chosen)
 
