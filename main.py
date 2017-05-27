@@ -395,8 +395,12 @@ def parse_text(text, username, message_id):
             cover_chosen = arena_cover[random.randint(0, 2)]
             log('Атака: {0}, Защита: {1}'.format(attack_chosen, cover_chosen))
             sleep(random.randint(2,6))
-            action_list.append(attack_chosen)
-            action_list.append(cover_chosen)
+            if random.randint(0,1):
+                action_list.append(attack_chosen)
+                action_list.append(cover_chosen)
+            else:
+                action_list.append(cover_chosen)
+                action_list.append(attack_chosen)
 
         elif text.find('Победил воин') != -1 or text.find('Ничья') != -1:
             log('Выключаем флаг - арена закончилась')
