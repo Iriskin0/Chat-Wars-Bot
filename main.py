@@ -362,31 +362,34 @@ def parse_text(text, username, message_id):
             log('Золото: {0}, выносливость: {1}'.format(gold, endurance))
             inv = re.search('🎒Рюкзак: ([0-9]+)/([0-9]+)', text)
             log('Рюкзак: {0} / {1}'.format(inv.group(1),inv.group(2)))
-            if text.find('🛌Отдых') != -1 and arena_running:
-                arena_running = False
-            if peshera_enabled and endurance >= 2:
-                if les_enabled:
-                    action_list.append(orders['quests'])
-                    action_list.append(random.choice([orders['peshera'], orders['les']]))
-                else:
-                    action_list.append(orders['quests'])
-                    action_list.append(orders['peshera'])
+            if text.find('🛌Отдых') == -1:
+              log('Чем-то занят, ждём')
+            else:
+              if text.find('🛌Отдых') != -1 and arena_running:
+                  arena_running = False
+              if peshera_enabled and endurance >= 2:
+                  if les_enabled:
+                      action_list.append(orders['quests'])
+                      action_list.append(random.choice([orders['peshera'], orders['les']]))
+                  else:
+                      action_list.append(orders['quests'])
+                      action_list.append(orders['peshera'])
 
-            elif les_enabled and not peshera_enabled and endurance >= 1 and orders['les'] not in action_list:
-                action_list.append(orders['quests'])
-                action_list.append(orders['les'])
+              elif les_enabled and not peshera_enabled and endurance >= 1 and orders['les'] not in action_list:
+                  action_list.append(orders['quests'])
+                  action_list.append(orders['les'])
 
-            elif arena_enabled and not arena_delay and gold >= 5 and not arena_running:
-                curhour = datetime.now(tz).hour
-                if 9 <= curhour <= 23:
-                    log('Включаем флаг - арена запущена')
-                    arena_running = True
-                    action_list.append(orders['castle_menu'])
-                    action_list.append('📯Арена')
-                    action_list.append('🔎Поиск соперника')
-                    log('Топаем на арену')
-                else:
-                    log('По часам не проходим на арену. Сейчас ' + str(curhour) + ' часов')
+              elif arena_enabled and not arena_delay and gold >= 5 and not arena_running:
+                  curhour = datetime.now(tz).hour
+                  if 9 <= curhour <= 23:
+                      log('Включаем флаг - арена запущена')
+                      arena_running = True
+                      action_list.append(orders['castle_menu'])
+                      action_list.append('📯Арена')
+                      action_list.append('🔎Поиск соперника')
+                      log('Топаем на арену')
+                  else:
+                      log('По часам не проходим на арену. Сейчас ' + str(curhour) + ' часов')
 
         elif arena_enabled and text.find('выбери точку атаки и точку защиты') != -1:
             arena_running = True #на случай, если арена запущена руками
