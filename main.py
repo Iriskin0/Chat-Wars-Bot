@@ -1,3 +1,4 @@
+#!/usr/bin/python3
 # coding=utf-8
 from pytg.sender import Sender
 from pytg.receiver import Receiver
@@ -7,11 +8,15 @@ from time import time, sleep
 from getopt import getopt
 from datetime import datetime
 import sys
+import os
 import re
 import _thread
 import random
 import pytz
 import configparser
+
+pathname = os.path.dirname(sys.argv[0])
+fullpath = os.path.abspath(pathname)
 
 # username игрового бота
 bot_username = 'ChatWarsBot'
@@ -170,7 +175,7 @@ def work_with_message(receiver):
                 if bot_user_id == '' and msg['sender']['username'] == bot_username:
                     bot_user_id = msg['receiver']['peer_id']
                     log('user_id найден: {0}'.format(bot_user_id))
-                    config.read('./bot_cfg/' + str(bot_user_id) + '.cfg')
+                    config.read(fullpath + '/bot_cfg/' + str(bot_user_id) + '.cfg')
                     if config.has_section(str(bot_user_id)):
                         log('Конфиг найден')
                         read_config()
@@ -267,7 +272,7 @@ def write_config():
     config.set(section, 'donate_buying', str(donate_buying))
     config.set(section, 'lvl_up', str(lvl_up))
     config.set(section, 'quest_fight_enabled', str(quest_fight_enabled))
-    with open('./bot_cfg/' + str(bot_user_id) + '.cfg','w+') as configfile:
+    with open(fullpath + '/bot_cfg/' + str(bot_user_id) + '.cfg','w+') as configfile:
         config.write(configfile)
 
 def parse_text(text, username, message_id):
