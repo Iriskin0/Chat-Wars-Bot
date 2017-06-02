@@ -200,7 +200,7 @@ auto_def_enabled = True
 donate_enabled = False
 quest_fight_enabled = True
 build_enabled = False
-
+twinkstock_enabled = False
 
 arena_running = False
 arena_delay = False
@@ -348,6 +348,7 @@ def parse_text(text, username, message_id):
     global quest_fight_enabled
     global build_enabled
     global build_target
+    global twinkstock_enabled
     if bot_enabled and username == bot_username:
         log('Получили сообщение от бота. Проверяем условия')
 
@@ -496,6 +497,13 @@ def parse_text(text, username, message_id):
             action_list.append(text)
             bot_enabled = True
 
+    elif username == 'ChatWarsTradeBot' and twinkstock_enabled:
+        if text.find('Твой склад с материалами') != -1:
+            stock_id = message_id
+            fwd('@','PenguindrumStockBot',stock_id)
+            twinkstock_enabled = False
+            send_msg(pref, msg_receiver, 'Сток обновлен')
+
     else:
         if bot_enabled and order_enabled and username in order_usernames:
             if text.find(orders['red']) != -1:
@@ -572,6 +580,11 @@ def parse_text(text, username, message_id):
                 bot_enabled = False
                 write_config()
                 send_msg(pref, msg_receiver, 'Бот успешно выключен')
+
+            # отправка стока
+            elif text == '#stock':
+                twinkstock_enabled = True
+                send_msg('@','ChatWarsTradeBot','/start')
 
             # Вкл/выкл арены
             elif text == '#enable_arena':
