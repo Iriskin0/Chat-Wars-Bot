@@ -50,6 +50,8 @@ lvl_up = 'lvl_off'
 # имя группы
 group_name = ''
 
+build_targed = '/build_hq'
+
 config = configparser.SafeConfigParser()
 
 # user_id бота, используется для поиска конфига
@@ -127,6 +129,18 @@ captcha_answers = {
     'squirrel': '🐿'
 }
 
+builds = {
+    'stash': '/build_stash',
+    'sentries': '/build_sentries',
+    'monument': '/build_monument',
+    'warriors': '/build_warriors',
+    'teaparty': '/build_teaparty',
+    'hq': '/build_hq',
+    'gladiators': '/build_gladiators',
+    'wall': '/build_wall',
+    'ambar': '/build_ambar'
+}
+
 arena_cover = ['🛡головы', '🛡корпуса', '🛡ног']
 arena_attack = ['🗡в голову', '🗡по корпусу', '🗡по ногам']
 # поменять blue на red, black, white, yellow в зависимости от вашего замка
@@ -159,6 +173,8 @@ order_enabled = True
 auto_def_enabled = True
 donate_enabled = False
 quest_fight_enabled = True
+build_enabled = False
+
 
 arena_running = False
 arena_delay = False
@@ -233,6 +249,8 @@ def read_config():
     global donate_buying
     global lvl_up
     global quest_fight_enabled
+    global build_enabled
+    global build_target
     section=str(bot_user_id)
     bot_enabled=config.getboolean(section, 'bot_enabled')
     arena_enabled=config.getboolean(section, 'arena_enabled')
@@ -244,6 +262,8 @@ def read_config():
     donate_buying=config.getboolean(section, 'donate_buying')
     lvl_up=config.get(section, 'lvl_up')
     quest_fight_enabled=config.getboolean(section, 'quest_fight_enabled')
+    build_enabled=config.getboolean(section, 'build_enabled')
+    build_target=config.get(section, 'build_target')
 
 def write_config():
     global config
@@ -258,6 +278,8 @@ def write_config():
     global donate_buying
     global lvl_up
     global quest_fight_enabled
+    global build_enabled
+    global build_target
     section=str(bot_user_id)
     if config.has_section(section):
         config.remove_section(section)
@@ -272,6 +294,8 @@ def write_config():
     config.set(section, 'donate_buying', str(donate_buying))
     config.set(section, 'lvl_up', str(lvl_up))
     config.set(section, 'quest_fight_enabled', str(quest_fight_enabled))
+    config.set(section, 'build_enabled', str(build_enabled))
+    config.set(section, 'build_target', str(build_target))
     with open(fullpath + '/bot_cfg/' + str(bot_user_id) + '.cfg','w+') as configfile:
         config.write(configfile)
 
@@ -296,6 +320,8 @@ def parse_text(text, username, message_id):
     global pref
     global msg_receiver
     global quest_fight_enabled
+    global build_enabled
+    global build_target
     if bot_enabled and username == bot_username:
         log('Получили сообщение от бота. Проверяем условия')
 
@@ -325,6 +351,12 @@ def parse_text(text, username, message_id):
             arena_delay_day = datetime.now(tz).day
             log("Отдыхаем денек от арены")
             arena_running = False
+
+        elif 'Ты пошел строить:' in text:
+            log("Ушли строить")
+
+        elif 'В казне недостаточно' in text:
+            log("Стройка не удалась, в замке нет денег")
 
         elif corovan_enabled and text.find(' /go') != -1:
             action_list.append(orders['corovan'])
@@ -395,6 +427,19 @@ def parse_text(text, username, message_id):
                       log('Топаем на арену')
                   else:
                       log('По часам не проходим на арену. Сейчас ' + str(curhour) + ' часов')
+                      if build_enabled:
+                           log('Пойдем строить')
+                           action_list.append(orders['castle_menu'])
+                           action_list.append('🏘Постройки')
+                           action_list.append('🚧Стройка')
+                           action_list.append(build_target)
+
+              elif build_enabled:
+                  log('Пойдем строить')
+                  action_list.append(orders['castle_menu'])
+                  action_list.append('🏘Постройки')
+                  action_list.append('🚧Стройка')
+                  action_list.append(build_target)
 
         elif arena_enabled and text.find('выбери точку атаки и точку защиты') != -1:
             arena_running = True #на случай, если арена запущена руками
@@ -487,6 +532,9 @@ def parse_text(text, username, message_id):
                     '#lt_arena - Дебаг, последняя битва на арене',
                     '#get_info_diff - Дебаг, последняя разница между запросами информации о герое',
                     '#ping - Дебаг, проверить жив ли бот',
+                    '#enable_build - Включить постройки',
+                    '#disable_build - Выключить постройки',
+                    '#build_target - указать цель постройки ({0})'.format(','.join(builds)),
                 ]))
 
             # Вкл/выкл бота
@@ -615,8 +663,10 @@ def parse_text(text, username, message_id):
                     '💰Донат включен: {8}',
                     '🏚Донат в лавку вместо казны: {9}',
                     '🌟Левелап: {10}',
+		    '🏘Постройка включена: {11}',
+		    '🚧Цель постройки: {12}',
                 ]).format(bot_enabled, arena_enabled, arena_running, les_enabled, peshera_enabled, corovan_enabled, order_enabled,
-                          auto_def_enabled, donate_enabled, donate_buying,orders[lvl_up]))
+                          auto_def_enabled, donate_enabled, donate_buying,orders[lvl_up],build_enabled,build_target))
 
             # Информация о герое
             elif text == '#hero':
@@ -655,6 +705,15 @@ def parse_text(text, username, message_id):
                 else:
                     send_msg(pref, msg_receiver, 'Команда ' + command + ' не распознана')
 
+            elif text.startswith('#build_target'):
+                command = text.split(' ')[1]
+                if command in builds:
+                    build_target = builds[command]
+                    send_msg(pref, msg_receiver, 'Постройка ' + builds[command] + ' установлена')
+                    write_config()
+                else:
+                    send_msg(pref, msg_receiver, 'Постройка ' + command + ' не распознана')
+
             elif text.startswith('#captcha'):
                 command = text.split(' ')[1]
                 if command in captcha_answers:
@@ -663,6 +722,16 @@ def parse_text(text, username, message_id):
                     send_msg('@', admin_username, 'Команда ' + command + ' применена')
                 else:
                     send_msg('@', admin_username, 'Команда ' + command + ' не распознана')
+
+            # Вкл/выкл построек
+            elif text == '#enable_build':
+                build_enabled = True
+                write_config()
+                send_msg(pref, msg_receiver, 'Постройка успешно включена')
+            elif text == '#disable_build':
+                build_enabled = False
+                write_config()
+                send_msg(pref, msg_receiver, 'Постройка успешно выключена')
 
 
 def send_msg(pref, to, message):
