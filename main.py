@@ -52,10 +52,22 @@ group_name = ''
 
 build_targed = '/build_hq'
 
+baseconfig = configparser.SafeConfigParser()
 config = configparser.SafeConfigParser()
 
 # user_id бота, используется для поиска конфига
 bot_user_id = ''
+
+# читаем базовые конфиги из файла
+baseconfig.read(fullpath + '/config.cfg')
+if baseconfig.has_section('base'):
+    castle_name=baseconfig.get('base','castle_name')
+    admin_username=baseconfig.get('base','admin_username')
+    order_usernames=baseconfig.get('base','order_usernames')
+    host=baseconfig.get('base','host')
+    port=baseconfig.get('base','port')
+    socket_path=baseconfig.get('base','socket_path')
+    group_name=baseconfig.get('base','group_name')
 
 opts, args = getopt(sys.argv[1:], 'a:o:c:s:h:p:g:b:l:n', ['admin=', 'order=', 'castle=', 'socket=', 'host=', 'port=',
                                                           'gold=', 'buy=', 'lvlup=', 'group_name='])
@@ -83,6 +95,20 @@ for opt, arg in opts:
         group_name = arg
 
 
+# сохраняем базовые параметры в файл
+
+if baseconfig.has_section('base'):
+    baseconfig.remove_section('base')
+baseconfig.add_section('base')
+baseconfig.set('base','castle_name',str(castle_name))
+baseconfig.set('base','admin_username',str(admin_username))
+baseconfig.set('base','order_usernames',str(order_usernames))
+baseconfig.set('base','host',str(host))
+baseconfig.set('base','port',str(port))
+baseconfig.set('base','socket_path',str(socket_path))
+baseconfig.set('base','group_name',str(group_name))
+with open(fullpath + '/config.cfg','w+') as cfgfile:
+    baseconfig.write(cfgfile)
 
 orders = {
     'red': '🇮🇲',
