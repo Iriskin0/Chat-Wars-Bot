@@ -204,7 +204,7 @@ auto_def_enabled = True
 donate_enabled = False
 quest_fight_enabled = True
 build_enabled = False
-build_target = 'build_hq'
+build_target = '/build_hq'
 twinkstock_enabled = False
 
 arena_running = False
