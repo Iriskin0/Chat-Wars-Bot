@@ -32,6 +32,10 @@ castle_name = 'blue'
 
 captcha_bot = 'ChatWarsCaptchaBot'
 
+stock_bot = 'PenguindrumStockBot'
+
+trade_bot = 'ChatWarsTradeBot'
+
 # путь к сокет файлу
 socket_path = ''
 
@@ -242,6 +246,8 @@ def queue_worker():
     # гребаная магия
     print(sender.contacts_search(bot_username))
     print(sender.contacts_search(captcha_bot))
+    print(sender.contacts_search(stock_bot))
+    print(sender.contacts_search(trade_bot))
     sleep(3)
     while True:
         try:
@@ -569,6 +575,7 @@ def parse_text(text, username, message_id):
                     '#enable_build - Включить постройки',
                     '#disable_build - Выключить постройки',
                     '#build_target - указать цель постройки ({0})'.format(','.join(builds)),
+                    '#stock - Обновить стоки',
                 ]))
 
             # Вкл/выкл бота
