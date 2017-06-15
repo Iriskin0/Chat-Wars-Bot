@@ -373,11 +373,13 @@ def parse_text(text, username, message_id):
     global gold
     global inv
     global endurance
+    global endurancetop
     global state
     global victory
     global arenafight
     global get_info_diff
     global lt_info
+    global time_to_war
     if bot_enabled and username == bot_username:
         log('Получили сообщение от бота. Проверяем условия')
 
@@ -446,11 +448,12 @@ def parse_text(text, username, message_id):
         elif text.find('Битва семи замков через') != -1:
             hero_message_id = message_id
             endurance = int(re.search('Выносливость: ([0-9]+)', text).group(1))
+            endurancetop = int(re.search('Выносливость: ([0-9]+)/([0-9]+)', text).group(2))
             gold = int(re.search('💰(-?[0-9]+)', text).group(1))
-            log('Золото: {0}, выносливость: {1}'.format(gold, endurance))
             inv = re.search('🎒Рюкзак: ([0-9]+)/([0-9]+)', text)
-            log('Рюкзак: {0} / {1}'.format(inv.group(1), inv.group(2)))
-            m = re.search('Битва семи замков через(?: ([0-9]+)ч){0,1}(?: ([0-9]+)){0,1}', text)
+            log('Золото: {0}, выносливость: {1} / {2}, Рюкзак: {3} / {4}'.format(gold, endurance, endurancetop,
+                                                                               inv.group(1), inv.group(2)))
+            m = re.search('Битва семи замков через(?: ([0-9]+)ч){0,1}(?: ([0-9]+)){0,1} минут', text)
             if not m.group(1):
                 if m.group(2) and int(m.group(2)) <= 29:
                     report = True
@@ -483,9 +486,11 @@ def parse_text(text, username, message_id):
                     # если битва через несколько секунд
                     report = True
                     return
-            log('Времени достаточно')
+            time_to_war = int(m.group(1))*60 + int(m.group(2))
+            log('Времени достаточно. До боя осталось {0} минут'.format(time_to_war))
             if report:
                 action_list.append('/report')
+                sleep(random.randint(3, 6))
                 log('запросили репорт по битве')
                 report = False
             if text.find('🛌Отдых') == -1 and text.find('🛡Защита ') == -1:
