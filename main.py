@@ -411,6 +411,14 @@ def parse_text(text, username, message_id):
             log("Отдыхаем денек от арены")
             arena_running = False
 
+        elif 'Даже драконы не могут драться так часто' in text:
+            arena_delay = True
+            arena_delay_day = datetime.now(tz).day
+            log("Отдыхаем денек от арены")
+            arena_running = False
+            sleep(random.randint(5, 15))
+            action_list.append('⬅️Назад')
+
         elif 'Ты пошел строить:' in text:
             log("Ушли строить")
             lt_info = time()
@@ -436,8 +444,12 @@ def parse_text(text, username, message_id):
         elif 'Добро пожаловать на арену!' in text:
             victory = re.search('Количество побед: ([0-9]+)', text).group(1)
             arenafight = re.search('Поединков сегодня ([0-9]+) из ([0-9]+)', text)
-            log('Побед: {0}'.format(victory))
-            log('Поединков: {0} / {1}'.format(arenafight.group(1), arenafight.group(2)))
+            log('Поединков: {0} / {1}. Побед: {2}'.format(arenafight.group(1), arenafight.group(2), victory))
+            if arena_enabled and not arena_delay and gold >= 5 and not arena_running:
+                log('Включаем флаг - арена запущена')
+                arena_running = True
+                action_list.append('🔎Поиск соперника')
+                log('Топаем на арену')
 
         elif 'В казне недостаточно' in text:
             log("Стройка не удалась, в замке нет денег")
@@ -452,7 +464,7 @@ def parse_text(text, username, message_id):
             gold = int(re.search('💰(-?[0-9]+)', text).group(1))
             inv = re.search('🎒Рюкзак: ([0-9]+)/([0-9]+)', text)
             log('Золото: {0}, выносливость: {1} / {2}, Рюкзак: {3} / {4}'.format(gold, endurance, endurancetop,
-                                                                               inv.group(1), inv.group(2)))
+                                                                                 inv.group(1), inv.group(2)))
             m = re.search('Битва семи замков через(?: ([0-9]+)ч){0,1}(?: ([0-9]+)){0,1} минут', text)
             if not m.group(1):
                 if m.group(2) and int(m.group(2)) <= 29:
@@ -486,7 +498,7 @@ def parse_text(text, username, message_id):
                     # если битва через несколько секунд
                     report = True
                     return
-            time_to_war = int(m.group(1))*60 + int(m.group(2))
+            time_to_war = int(m.group(1)) * 60 + int(m.group(2))
             log('Времени достаточно. До боя осталось {0} минут'.format(time_to_war))
             if report:
                 action_list.append('/report')
@@ -501,10 +513,10 @@ def parse_text(text, username, message_id):
                     log('на стройку нам не нужно')
                     if not arena_enabled or arena_delay:
                         log('на арену тоже не нужно')
-                        if int(endurancetop)-int(endurance) >= 4:
-                            #минут за 40 до битвы имеет смысл выйти из спячки
-                            sleeping=time_to_war * 60-40*60
-                            log('выносливости мало, можно и подремать до боя {0} минут'.format(int(sleeping/60)))
+                        if int(endurancetop) - int(endurance) >= 4:
+                            # минут за 40 до битвы имеет смысл выйти из спячки
+                            sleeping = time_to_war * 60 - 40 * 60
+                            log('выносливости мало, можно и подремать до боя {0} минут'.format(int(sleeping / 60)))
                             lt_info = time()
                             get_info_diff = sleeping
                 if text.find('🛌Отдых') != -1 and arena_running:
@@ -524,12 +536,8 @@ def parse_text(text, username, message_id):
                 elif arena_enabled and not arena_delay and gold >= 5 and not arena_running:
                     curhour = datetime.now(tz).hour
                     if 9 <= curhour <= 23:
-                        log('Включаем флаг - арена запущена')
-                        arena_running = True
                         action_list.append(orders['castle_menu'])
                         action_list.append('📯Арена')
-                        action_list.append('🔎Поиск соперника')
-                        log('Топаем на арену')
                     else:
                         log('По часам не проходим на арену. Сейчас ' + str(curhour) + ' часов')
                         if build_enabled:
