@@ -502,6 +502,7 @@ def parse_text(text, username, message_id):
                     if not arena_enabled or arena_delay:
                         log('на арену тоже не нужно')
                         if int(endurancetop)-int(endurance) >= 4:
+                            #минут за 40 до битвы имеет смысл выйти из спячки
                             sleeping=time_to_war * 60-40*60
                             log('выносливости мало, можно и подремать до боя {0} минут'.format(int(sleeping/60)))
                             lt_info = time()
@@ -691,6 +692,7 @@ def parse_text(text, username, message_id):
                 lt_info = time()
                 get_info_diff = random.randint(400, 500)
                 send_msg(pref, msg_receiver, 'Арена успешно включена')
+                log('Арена успешно включена, скоро пойдем бить морды')
             elif text == '#disable_arena':
                 arena_enabled = False
                 write_config()
@@ -870,6 +872,7 @@ def parse_text(text, username, message_id):
                 lt_info = time()
                 get_info_diff = random.randint(400, 500)
                 send_msg(pref, msg_receiver, 'Постройка успешно включена')
+                log('Постройка успешно включена, скоро пойдем строить')
             elif text == '#disable_build':
                 build_enabled = False
                 write_config()
