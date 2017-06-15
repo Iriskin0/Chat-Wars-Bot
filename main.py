@@ -411,14 +411,6 @@ def parse_text(text, username, message_id):
             log("Отдыхаем денек от арены")
             arena_running = False
 
-        elif 'Даже драконы не могут драться так часто' in text:
-            arena_delay = True
-            arena_delay_day = datetime.now(tz).day
-            log("Отдыхаем денек от арены")
-            arena_running = False
-            sleep(random.randint(5, 15))
-            action_list.append('⬅️Назад')
-
         elif 'Ты пошел строить:' in text:
             log("Ушли строить")
             lt_info = time()
@@ -445,6 +437,13 @@ def parse_text(text, username, message_id):
             victory = re.search('Количество побед: ([0-9]+)', text).group(1)
             arenafight = re.search('Поединков сегодня ([0-9]+) из ([0-9]+)', text)
             log('Поединков: {0} / {1}. Побед: {2}'.format(arenafight.group(1), arenafight.group(2), victory))
+            if 'Даже драконы не могут драться так часто' in text:
+                arena_delay = True
+                arena_delay_day = datetime.now(tz).day
+                log("Отдыхаем денек от арены")
+                arena_running = False
+                sleep(random.randint(5, 15))
+                action_list.append('⬅️Назад')
             if arena_enabled and not arena_delay and gold >= 5 and not arena_running:
                 log('Включаем флаг - арена запущена')
                 arena_running = True
