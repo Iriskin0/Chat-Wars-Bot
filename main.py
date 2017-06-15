@@ -496,6 +496,16 @@ def parse_text(text, username, message_id):
             if text.find('🛌Отдых') == -1 and text.find('🛡Защита ') == -1:
                 log('Чем-то занят, ждём')
             else:
+                # Подумаем, а надо ли так часто ходить куда нибудь )
+                if not build_enabled:
+                    log('на стройку нам не нужно')
+                    if not arena_enabled or arena_delay:
+                        log('на арену тоже не нужно')
+                        if int(endurancetop)-int(endurance) >= 4:
+                            sleeping=time_to_war * 60-40*60
+                            log('выносливости мало, можно и подремать до боя {0} минут'.format(int(sleeping/60)))
+                            lt_info = time()
+                            get_info_diff = sleeping
                 if text.find('🛌Отдых') != -1 and arena_running:
                     arena_running = False
                 if peshera_enabled and endurance >= 2:
@@ -678,6 +688,8 @@ def parse_text(text, username, message_id):
             elif text == '#enable_arena':
                 arena_enabled = True
                 write_config()
+                lt_info = time()
+                get_info_diff = random.randint(400, 500)
                 send_msg(pref, msg_receiver, 'Арена успешно включена')
             elif text == '#disable_arena':
                 arena_enabled = False
@@ -855,6 +867,8 @@ def parse_text(text, username, message_id):
             elif text == '#enable_build':
                 build_enabled = True
                 write_config()
+                lt_info = time()
+                get_info_diff = random.randint(400, 500)
                 send_msg(pref, msg_receiver, 'Постройка успешно включена')
             elif text == '#disable_build':
                 build_enabled = False
