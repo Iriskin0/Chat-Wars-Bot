@@ -515,11 +515,12 @@ def parse_text(text, username, message_id):
                 # Подумаем, а надо ли так часто ходить куда нибудь )
                 if not build_enabled:
                     log('на стройку нам не нужно')
-                    if not arena_enabled or arena_delay:
+                    curhour = datetime.now(tz).hour
+                    if not arena_enabled or arena_delay or (9 < curhour > 23):
                         log('на арену тоже не нужно')
                         if int(endurancetop) - int(endurance) >= 4:
-                            # минут за 40 до битвы имеет смысл выйти из спячки
-                            sleeping = time_to_war * 60 - 40 * 60
+                            # минут за 35-45 до битвы имеет смысл выйти из спячки
+                            sleeping = time_to_war * 60 - 60 * random.randint(35,45)
                             log('выносливости мало, можно и подремать до боя {0} минут'.format(int(sleeping / 60)))
                             lt_info = time()
                             get_info_diff = sleeping
