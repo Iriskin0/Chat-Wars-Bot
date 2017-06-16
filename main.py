@@ -835,6 +835,7 @@ def parse_text(text, username, message_id):
             elif text == '#log':
                 send_msg(pref, msg_receiver, '\n'.join(log_list))
                 log_list.clear()
+                log('Лог запрошен и очищен')
 
             elif text == '#lt_arena':
                 send_msg(pref, msg_receiver, str(lt_arena))
