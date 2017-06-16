@@ -524,6 +524,7 @@ def parse_text(text, username, message_id):
                             log('выносливости мало, можно и подремать до боя {0} минут'.format(int(sleeping / 60)))
                             lt_info = time()
                             get_info_diff = sleeping
+                            return
                 if text.find('🛌Отдых') != -1 and arena_running:
                     arena_running = False
                 if peshera_enabled and endurance >= 2:
