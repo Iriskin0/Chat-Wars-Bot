@@ -69,7 +69,7 @@ if baseconfig.has_section('base'):
     admin_username=baseconfig.get('base','admin_username')
     order_usernames=baseconfig.get('base','order_usernames')
     host=baseconfig.get('base','host')
-    port=baseconfig.get('base','port')
+    port=int(baseconfig.get('base','port'))
     socket_path=baseconfig.get('base','socket_path')
     group_name=baseconfig.get('base','group_name')
 
