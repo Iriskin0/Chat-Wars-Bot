@@ -516,7 +516,7 @@ def parse_text(text, username, message_id):
                 if not build_enabled:
                     log('на стройку нам не нужно')
                     curhour = datetime.now(tz).hour
-                    if not arena_enabled or arena_delay or curhour > 23 or curhour < 9:
+                    if not arena_enabled or arena_delay or curhour > 23 or curhour < 8:
                         log('на арену тоже не нужно')
                         if int(endurancetop) - int(endurance) >= 4:
                             # минут за 35-45 до битвы имеет смысл выйти из спячки
