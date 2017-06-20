@@ -56,6 +56,9 @@ group_name = ''
 
 build_targed = '/build_hq'
 
+#id ресурса для трейда
+resource_id = '0'
+
 baseconfig = configparser.SafeConfigParser()
 config = configparser.SafeConfigParser()
 
@@ -356,6 +359,7 @@ def parse_text(text, username, message_id):
     global build_enabled
     global build_target
     global twinkstock_enabled
+    global resource_id
     if bot_enabled and username == bot_username:
         log('Получили сообщение от бота. Проверяем условия')
 
@@ -510,6 +514,12 @@ def parse_text(text, username, message_id):
             fwd('@','PenguindrumStockBot',stock_id)
             twinkstock_enabled = False
             send_msg(pref, msg_receiver, 'Сток обновлен')
+		
+    elif username == 'ChatWarsTradeBot' and resource_id!= '0':
+        if text.find('/add_'+resource_id) != -1:
+            count = re.search('/add_'+resource_id+'(\D+)(.*)', text).group(2)
+            send_msg('@',trade_bot,'/add_'+resource_id+' '+str(count))
+        resource_id='0'
 
     else:
         if bot_enabled and order_enabled and username in order_usernames:
@@ -779,7 +789,9 @@ def parse_text(text, username, message_id):
                 build_enabled = False
                 write_config()
                 send_msg(pref, msg_receiver, 'Постройка успешно выключена')
-
+            elif text.startswith('#add'):
+                resource_id = text.split(' ')[1]
+                send_msg('@', trade_bot, '/stock')
 
 def send_msg(pref, to, message):
     sender.send_msg(pref + to, message)
