@@ -790,8 +790,8 @@ def parse_text(text, username, message_id):
                 write_config()
                 send_msg(pref, msg_receiver, 'Постройка успешно выключена')
             elif text.startswith('#add'):
-		resource_id = text.split(' ')[1]
-		send_msg('@', trade_bot, '/stock')
+                resource_id = text.split(' ')[1]
+                send_msg('@', trade_bot, '/stock')
 
 def send_msg(pref, to, message):
     sender.send_msg(pref + to, message)
