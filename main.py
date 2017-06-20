@@ -540,7 +540,7 @@ def parse_text(text, username, message_id):
                             lt_info = time()
                             get_info_diff = sleeping
                             return
-                    elif gold <5 and endurance == 0 and time_to_war > 60:
+                    elif gold < 5 and endurance == 0 and time_to_war > 60:
                         sleeping = 60 * random.randint(30, 40)
                         log('выносливости нет, денег нет, можно и подремать до боя {0} минут'.format(int(sleeping / 60)))
                         lt_info = time()
