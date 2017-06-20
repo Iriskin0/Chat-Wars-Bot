@@ -36,6 +36,8 @@ stock_bot = 'PenguindrumStockBot'
 
 trade_bot = 'ChatWarsTradeBot'
 
+redstat_bot = 'RedStatBot'
+
 # путь к сокет файлу
 socket_path = ''
 
@@ -255,6 +257,8 @@ def queue_worker():
     print(sender.contacts_search(captcha_bot))
     print(sender.contacts_search(stock_bot))
     print(sender.contacts_search(trade_bot))
+    if castle_name == 'red':
+        print(sender.contacts_search(redstat_bot))
     sleep(3)
     while True:
         try:
@@ -411,6 +415,14 @@ def parse_text(text, username, message_id):
             log("Отдыхаем денек от арены")
             arena_running = False
 
+        elif 'Ты вернулся со стройки:' in text and castle_name == 'red':
+            log("Построили, сообщаем легату")
+            fwd('@', 'RedStatBot', message_id)
+
+        elif 'Твои результаты в бою:' in text and castle_name == 'red':
+            log("Повоевали, сообщаем легату")
+            fwd('@', 'RedStatBot', message_id)
+
         elif 'Закупка начинается. Отслеживание заказа:' in text:
             buytrade = re.search('обойдется примерно в ([0-9]+)💰', text).group(1)
             gold -= int(buytrade)
@@ -475,6 +487,9 @@ def parse_text(text, username, message_id):
                     report = True
                     state = re.search('Состояние:\n(.*)', text).group(1)
                     if auto_def_enabled and time() - current_order['time'] > 1800 and 'Отдых' in state:
+                        if castle_name == 'red':
+                            fwd('@', 'RedStatBot', hero_message_id)
+                            log("отправляем профиль легату")
                         if donate_enabled:
                             if int(inv.group(1)) == int(inv.group(2)):
                                 log('Полный рюкзак - Донат в лавку отключен')
