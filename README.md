@@ -21,7 +21,8 @@
   2) Устанавливаем pip3: sudo apt-get install python3-pip<br />
   3) Устанавливаем pytg для 3 питона: pip3 install pytg pytz<br />
   4) Запускаем telegram-cli: ./telegram-cli --json -P 1338<br />
-  5) Качаем этот скрипт и запускаем: `python3 ./main.py --admin "ваш ник" --order "ник игроков/ботов, выдающих приказы, через запятую   без пробелов" --castle "blue/red/black/white/yellow/mint/twilight" --gold "сколько золота оставлять в кармане при автодонате" --buy "любое значение для включения доната в лавку" --lvlup "lvl_def - прокачка защиты/lvl_atk - прокачка атаки" --group_name 'название группового чата для отправки сообщений'`<br />
+  5) Открываем еще один терминал<br />
+  5) Качаем этот скрипт (git clone https://github.com/Iriskin0/Chat-Wars-Bot.git) и запускаем: `python3 ./main.py --admin "ваш ник" --order "ник игроков/ботов, выдающих приказы, через запятую   без пробелов" --castle "blue/red/black/white/yellow/mint/twilight" --gold "сколько золота оставлять в кармане при автодонате" --buy "любое значение для включения доната в лавку" --lvlup "lvl_def - прокачка защиты/lvl_atk - прокачка атаки" --group_name 'название группового чата для отправки сообщений'`<br />
   6) Для работы с капчой, начинаем общение с @ChatWarsCaptchaBot (тестируется) 
   7) Для работы со стоками начинаем общение с @PenguindrumStockBot и @chatwarstradebot. А так же в первом объявляем майн профиль по инструкции бота
   
