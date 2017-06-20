@@ -58,6 +58,9 @@ group_name = ''
 
 build_targed = '/build_hq'
 
+#id ресурса для трейда
+resource_id = '0'
+
 baseconfig = configparser.SafeConfigParser()
 config = configparser.SafeConfigParser()
 
@@ -67,13 +70,13 @@ bot_user_id = ''
 # читаем базовые конфиги из файла
 baseconfig.read(fullpath + '/config.cfg')
 if baseconfig.has_section('base'):
-    castle_name = baseconfig.get('base', 'castle_name')
-    admin_username = baseconfig.get('base', 'admin_username')
-    order_usernames = baseconfig.get('base', 'order_usernames')
-    host = baseconfig.get('base', 'host')
-    port = baseconfig.get('base', 'port')
-    socket_path = baseconfig.get('base', 'socket_path')
-    group_name = baseconfig.get('base', 'group_name')
+    castle_name=baseconfig.get('base','castle_name')
+    admin_username=baseconfig.get('base','admin_username')
+    order_usernames=baseconfig.get('base','order_usernames')
+    host=baseconfig.get('base','host')
+    port=int(baseconfig.get('base','port'))
+    socket_path=baseconfig.get('base','socket_path')
+    group_name=baseconfig.get('base','group_name')
 
 opts, args = getopt(sys.argv[1:], 'a:o:c:s:h:p:g:b:l:n', ['admin=', 'order=', 'castle=', 'socket=', 'host=', 'port=',
                                                           'gold=', 'buy=', 'lvlup=', 'group_name='])
@@ -100,19 +103,20 @@ for opt, arg in opts:
     elif opt in ('-n', '--group_name'):
         group_name = arg
 
+
 # сохраняем базовые параметры в файл
 
 if baseconfig.has_section('base'):
     baseconfig.remove_section('base')
 baseconfig.add_section('base')
-baseconfig.set('base', 'castle_name', str(castle_name))
-baseconfig.set('base', 'admin_username', str(admin_username))
-baseconfig.set('base', 'order_usernames', str(order_usernames))
-baseconfig.set('base', 'host', str(host))
-baseconfig.set('base', 'port', str(port))
-baseconfig.set('base', 'socket_path', str(socket_path))
-baseconfig.set('base', 'group_name', str(group_name))
-with open(fullpath + '/config.cfg', 'w+') as cfgfile:
+baseconfig.set('base','castle_name',str(castle_name))
+baseconfig.set('base','admin_username',str(admin_username))
+baseconfig.set('base','order_usernames',str(order_usernames))
+baseconfig.set('base','host',str(host))
+baseconfig.set('base','port',str(port))
+baseconfig.set('base','socket_path',str(socket_path))
+baseconfig.set('base','group_name',str(group_name))
+with open(fullpath + '/config.cfg','w+') as cfgfile:
     baseconfig.write(cfgfile)
 
 orders = {
@@ -179,14 +183,14 @@ castle = orders[castle_name]
 # текущий приказ на атаку/защиту, по умолчанию всегда защита, трогать не нужно
 current_order = {'time': 0, 'order': castle}
 # задаем получателя ответов бота: админ или группа
-if group_name == '':
+if group_name =='':
     pref = '@'
     msg_receiver = admin_username
 else:
     pref = ''
     msg_receiver = group_name
 
-sender = Sender(sock=socket_path) if socket_path else Sender(host=host, port=port)
+sender = Sender(sock=socket_path) if socket_path else Sender(host=host,port=port)
 action_list = deque([])
 log_list = deque([], maxlen=30)
 lt_arena = 0
@@ -217,7 +221,6 @@ arena_running = False
 arena_delay = False
 arena_delay_day = -1
 tz = pytz.timezone('Europe/Moscow')
-
 
 @coroutine
 def work_with_message(receiver):
@@ -283,7 +286,6 @@ def queue_worker():
         except Exception as err:
             log('Ошибка очереди: {0}'.format(err))
 
-
 def read_config():
     global config
     global bot_user_id
@@ -299,20 +301,19 @@ def read_config():
     global quest_fight_enabled
     global build_enabled
     global build_target
-    section = str(bot_user_id)
-    bot_enabled = config.getboolean(section, 'bot_enabled')
-    arena_enabled = config.getboolean(section, 'arena_enabled')
-    les_enabled = config.getboolean(section, 'les_enabled')
-    peshera_enabled = config.getboolean(section, 'peshera_enabled')
-    corovan_enabled = config.getboolean(section, 'corovan_enabled')
-    auto_def_enabled = config.getboolean(section, 'auto_def_enabled')
-    donate_enabled = config.getboolean(section, 'donate_enabled')
-    donate_buying = config.getboolean(section, 'donate_buying')
-    lvl_up = config.get(section, 'lvl_up')
-    quest_fight_enabled = config.getboolean(section, 'quest_fight_enabled')
-    build_enabled = config.getboolean(section, 'build_enabled')
-    build_target = config.get(section, 'build_target')
-
+    section=str(bot_user_id)
+    bot_enabled=config.getboolean(section, 'bot_enabled')
+    arena_enabled=config.getboolean(section, 'arena_enabled')
+    les_enabled=config.getboolean(section, 'les_enabled')
+    peshera_enabled=config.getboolean(section, 'peshera_enabled')
+    corovan_enabled=config.getboolean(section, 'corovan_enabled')
+    auto_def_enabled=config.getboolean(section, 'auto_def_enabled')
+    donate_enabled=config.getboolean(section, 'donate_enabled')
+    donate_buying=config.getboolean(section, 'donate_buying')
+    lvl_up=config.get(section, 'lvl_up')
+    quest_fight_enabled=config.getboolean(section, 'quest_fight_enabled')
+    build_enabled=config.getboolean(section, 'build_enabled')
+    build_target=config.get(section, 'build_target')
 
 def write_config():
     global config
@@ -329,7 +330,7 @@ def write_config():
     global quest_fight_enabled
     global build_enabled
     global build_target
-    section = str(bot_user_id)
+    section=str(bot_user_id)
     if config.has_section(section):
         config.remove_section(section)
     config.add_section(section)
@@ -345,9 +346,8 @@ def write_config():
     config.set(section, 'quest_fight_enabled', str(quest_fight_enabled))
     config.set(section, 'build_enabled', str(build_enabled))
     config.set(section, 'build_target', str(build_target))
-    with open(fullpath + '/bot_cfg/' + str(bot_user_id) + '.cfg', 'w+') as configfile:
+    with open(fullpath + '/bot_cfg/' + str(bot_user_id) + '.cfg','w+') as configfile:
         config.write(configfile)
-
 
 def parse_text(text, username, message_id):
     global lt_arena
@@ -373,6 +373,7 @@ def parse_text(text, username, message_id):
     global build_enabled
     global build_target
     global twinkstock_enabled
+    global resource_id
     global report
     global gold
     global inv
@@ -401,8 +402,7 @@ def parse_text(text, username, message_id):
             fwd('@', captcha_bot, message_id)
 
         elif 'Не умничай!' in text or 'Ты долго думал, аж вспотел от напряжения' in text:
-            send_msg('@', admin_username,
-                     "Командир, у нас проблемы с капчой! #captcha " + '|'.join(captcha_answers.keys()))
+            send_msg('@', admin_username, "Командир, у нас проблемы с капчой! #captcha " + '|'.join(captcha_answers.keys()))
             bot_enabled = False
             if last_captcha_id != 0:
                 fwd('@', admin_username, message_id)
@@ -588,15 +588,15 @@ def parse_text(text, username, message_id):
                         action_list.append(build_target)
 
         elif arena_enabled and text.find('выбери точку атаки и точку защиты') != -1:
-            arena_running = True  # на случай, если арена запущена руками
+            arena_running = True #на случай, если арена запущена руками
             lt_arena = time()
             lt_info = time()
             get_info_diff = random.randint(400, 500)
             attack_chosen = arena_attack[random.randint(0, 2)]
             cover_chosen = arena_cover[random.randint(0, 2)]
             log('Атака: {0}, Защита: {1}'.format(attack_chosen, cover_chosen))
-            sleep(random.randint(2, 6))
-            if random.randint(0, 1):
+            sleep(random.randint(2,6))
+            if random.randint(0,1):
                 action_list.append(attack_chosen)
                 action_list.append(cover_chosen)
             else:
@@ -623,9 +623,15 @@ def parse_text(text, username, message_id):
     elif username == 'ChatWarsTradeBot' and twinkstock_enabled:
         if text.find('Твой склад с материалами') != -1:
             stock_id = message_id
-            fwd('@', 'PenguindrumStockBot', stock_id)
+            fwd('@','PenguindrumStockBot',stock_id)
             twinkstock_enabled = False
             send_msg(pref, msg_receiver, 'Сток обновлен')
+
+    elif username == 'ChatWarsTradeBot' and resource_id!= '0':
+        if text.find('/add_'+resource_id) != -1:
+            count = re.search('/add_'+resource_id+'(\D+)(.*)', text).group(2)
+            send_msg('@',trade_bot,'/add_'+resource_id+' '+str(count))
+        resource_id='0'
 
     else:
         if bot_enabled and order_enabled and username in order_usernames:
@@ -718,7 +724,7 @@ def parse_text(text, username, message_id):
             # отправка стока
             elif text == '#stock':
                 twinkstock_enabled = True
-                send_msg('@', 'ChatWarsTradeBot', '/start')
+                send_msg('@','ChatWarsTradeBot','/start')
 
             # Вкл/выкл арены
             elif text == '#enable_arena':
@@ -839,11 +845,10 @@ def parse_text(text, username, message_id):
                     '💰Донат включен: {8}',
                     '🏚Донат в лавку вместо казны: {9}',
                     '🌟Левелап: {10}',
-                    '🏘Постройка включена: {11}',
-                    '🚧Цель постройки: {12}',
-                ]).format(bot_enabled, arena_enabled, arena_running, les_enabled, peshera_enabled, corovan_enabled,
-                          order_enabled,
-                          auto_def_enabled, donate_enabled, donate_buying, orders[lvl_up], build_enabled, build_target))
+		    '🏘Постройка включена: {11}',
+		    '🚧Цель постройки: {12}',
+                ]).format(bot_enabled, arena_enabled, arena_running, les_enabled, peshera_enabled, corovan_enabled, order_enabled,
+                          auto_def_enabled, donate_enabled, donate_buying,orders[lvl_up],build_enabled,build_target))
 
             # Информация о герое
             elif text == '#hero':
@@ -913,7 +918,9 @@ def parse_text(text, username, message_id):
                 build_enabled = False
                 write_config()
                 send_msg(pref, msg_receiver, 'Постройка успешно выключена')
-
+            elif text.startswith('#add'):
+                resource_id = text.split(' ')[1]
+                send_msg('@', trade_bot, '/stock')
 
 def send_msg(pref, to, message):
     sender.send_msg(pref + to, message)
@@ -933,7 +940,7 @@ def update_order(order):
     action_list.append(order)
 
 
-def log(text: object) -> object:
+def log(text):
     message = '{0:%Y-%m-%d+ %H:%M:%S}'.format(datetime.now()) + ' ' + text
     print(message)
     log_list.append(message)
