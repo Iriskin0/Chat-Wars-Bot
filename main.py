@@ -655,8 +655,10 @@ def parse_text(text, username, message_id):
                 update_order(orders['gorni_fort'])
             elif text.find('🛡') != -1:
                 update_order(castle)
-            elif quest_fight_enabled and text.find('/fight') != -1:
+
+	if bot_enabled and quest_fight_enabled and text.find('/fight') != -1:
                 c = re.search('(\/fight.*)', text).group(1)
+		sleep(random.randint(2,5))
                 action_list.append(c)
 
         # send_msg(pref, admin_username, 'Получили команду ' + current_order['order'] + ' от ' + username)
