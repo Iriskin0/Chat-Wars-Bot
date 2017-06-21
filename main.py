@@ -36,6 +36,8 @@ stock_bot = 'PenguindrumStockBot'
 
 trade_bot = 'ChatWarsTradeBot'
 
+redstat_bot = 'RedStatBot'
+
 # путь к сокет файлу
 socket_path = ''
 
@@ -56,6 +58,9 @@ group_name = ''
 
 build_targed = '/build_hq'
 
+#id ресурса для трейда
+resource_id = '0'
+
 baseconfig = configparser.SafeConfigParser()
 config = configparser.SafeConfigParser()
 
@@ -69,7 +74,7 @@ if baseconfig.has_section('base'):
     admin_username=baseconfig.get('base','admin_username')
     order_usernames=baseconfig.get('base','order_usernames')
     host=baseconfig.get('base','host')
-    port=baseconfig.get('base','port')
+    port=int(baseconfig.get('base','port'))
     socket_path=baseconfig.get('base','socket_path')
     group_name=baseconfig.get('base','group_name')
 
@@ -206,6 +211,11 @@ quest_fight_enabled = True
 build_enabled = False
 build_target = '/build_hq'
 twinkstock_enabled = False
+report = False
+arenafight = re.search('Поединков сегодня ([0-9]+) из ([0-9]+)', 'Поединков сегодня 0 из 0')
+victory = 0
+gold = 0
+endurance = 0
 
 arena_running = False
 arena_delay = False
@@ -240,6 +250,7 @@ def work_with_message(receiver):
 
 def queue_worker():
     global get_info_diff
+    global lt_info
     global arena_delay
     global arena_delay_day
     global tz
@@ -249,6 +260,8 @@ def queue_worker():
     print(sender.contacts_search(captcha_bot))
     print(sender.contacts_search(stock_bot))
     print(sender.contacts_search(trade_bot))
+    if castle_name == 'red':
+        print(sender.contacts_search(redstat_bot))
     sleep(3)
     while True:
         try:
@@ -256,7 +269,11 @@ def queue_worker():
                 if arena_delay and arena_delay_day != datetime.now(tz).day:
                     arena_delay = False
                 lt_info = time()
-                get_info_diff = random.randint(900, 1200)
+                curhour = datetime.now(tz).hour
+                if 9 <= curhour <= 23:
+                    get_info_diff = random.randint(420, 900)
+                else:
+                    get_info_diff = random.randint(600, 900)
                 if bot_enabled:
                     send_msg('@', bot_username, orders['hero'])
                 continue
@@ -356,6 +373,18 @@ def parse_text(text, username, message_id):
     global build_enabled
     global build_target
     global twinkstock_enabled
+    global resource_id
+    global report
+    global gold
+    global inv
+    global endurance
+    global endurancetop
+    global state
+    global victory
+    global arenafight
+    global get_info_diff
+    global lt_info
+    global time_to_war
     if bot_enabled and username == bot_username:
         log('Получили сообщение от бота. Проверяем условия')
 
@@ -386,8 +415,57 @@ def parse_text(text, username, message_id):
             log("Отдыхаем денек от арены")
             arena_running = False
 
+        elif 'Ты вернулся со стройки:' in text and castle_name == 'red':
+            log("Построили, сообщаем легату")
+            fwd('@', 'RedStatBot', message_id)
+
+        elif 'Твои результаты в бою:' in text and castle_name == 'red':
+            log("Повоевали, сообщаем легату")
+            fwd('@', 'RedStatBot', message_id)
+
+        elif 'Закупка начинается. Отслеживание заказа:' in text:
+            buytrade = re.search('обойдется примерно в ([0-9]+)💰', text).group(1)
+            gold -= int(buytrade)
+            log('Купили что-то на бирже на {0} золота'.format(buytrade))
+
         elif 'Ты пошел строить:' in text:
             log("Ушли строить")
+            lt_info = time()
+            get_info_diff = random.randint(400, 500)
+
+        elif 'Ты отправился искать приключения в пещеру' in text:
+            log("Ушли в пещеру")
+            lt_info = time()
+            get_info_diff = random.randint(400, 500)
+            endurance -= 2
+
+        elif 'Ты отправился искать приключения в лес' in text:
+            log("Ушли в лес")
+            lt_info = time()
+            get_info_diff = random.randint(400, 500)
+            endurance -= 1
+
+        elif 'Ищем соперника. Пока соперник не найден' in text:
+            lt_info = time()
+            get_info_diff = random.randint(900, 1200)
+            gold -= 5
+
+        elif 'Добро пожаловать на арену!' in text:
+            victory = re.search('Количество побед: ([0-9]+)', text).group(1)
+            arenafight = re.search('Поединков сегодня ([0-9]+) из ([0-9]+)', text)
+            log('Поединков: {0} / {1}. Побед: {2}'.format(arenafight.group(1), arenafight.group(2), victory))
+            if 'Даже драконы не могут драться так часто' in text:
+                arena_delay = True
+                arena_delay_day = datetime.now(tz).day
+                log("Отдыхаем денек от арены")
+                arena_running = False
+                sleep(random.randint(5, 15))
+                action_list.append('⬅️Назад')
+            if arena_enabled and not arena_delay and gold >= 5 and not arena_running:
+                log('Включаем флаг - арена запущена')
+                arena_running = True
+                action_list.append('🔎Поиск соперника')
+                log('Топаем на арену')
 
         elif 'В казне недостаточно' in text:
             log("Стройка не удалась, в замке нет денег")
@@ -397,87 +475,123 @@ def parse_text(text, username, message_id):
 
         elif text.find('Битва семи замков через') != -1:
             hero_message_id = message_id
-            m = re.search('Битва семи замков через(?: ([0-9]+)ч){0,1}(?: ([0-9]+)){0,1}', text)
+            endurance = int(re.search('Выносливость: ([0-9]+)', text).group(1))
+            endurancetop = int(re.search('Выносливость: ([0-9]+)/([0-9]+)', text).group(2))
+            gold = int(re.search('💰(-?[0-9]+)', text).group(1))
+            inv = re.search('🎒Рюкзак: ([0-9]+)/([0-9]+)', text)
+            log('Золото: {0}, выносливость: {1} / {2}, Рюкзак: {3} / {4}'.format(gold, endurance, endurancetop,
+                                                                                 inv.group(1), inv.group(2)))
+            m = re.search('Битва семи замков через(?: ([0-9]+)ч){0,1}(?: ([0-9]+)){0,1} минут', text)
             if not m.group(1):
-                if m.group(2) and int(m.group(2)) <= 59:
+                if m.group(2) and int(m.group(2)) <= 29:
+                    report = True
                     state = re.search('Состояние:\n(.*)', text).group(1)
-                    if auto_def_enabled and time() - current_order['time'] > 3600 and 'Отдых' in state:
+                    if auto_def_enabled and time() - current_order['time'] > 1800 and 'Отдых' in state:
+                        if castle_name == 'red':
+                            fwd('@', 'RedStatBot', hero_message_id)
+                            log("отправляем профиль легату")
                         if donate_enabled:
-                            gold = int(re.search('💰(-?[0-9]+)', text).group(1))
-                            inv = re.search('🎒Рюкзак: ([0-9]+)/([0-9]+)', text)
-                            log('Рюкзак: {0} / {1}'.format(inv.group(1),inv.group(2)))
                             if int(inv.group(1)) == int(inv.group(2)):
                                 log('Полный рюкзак - Донат в лавку отключен')
                                 donate_buying = False
                             if gold > gold_to_left:
                                 if donate_buying:
-                                    log('Донат {0} золота в лавку'.format(gold-gold_to_left))
+                                    log('Донат {0} золота в лавку'.format(gold - gold_to_left))
                                     action_list.append(orders['castle_menu'])
                                     action_list.append(orders['lavka'])
                                     action_list.append(orders['shlem'])
-                                    while (gold-gold_to_left) >= 35:
+                                    while (gold - gold_to_left) >= 35:
                                         gold -= 35
                                         action_list.append('/buy_helmet2')
-                                    while (gold-gold_to_left) > 0:
+                                    while (gold - gold_to_left) > 0:
                                         gold -= 1
                                         action_list.append('/buy_helmet1')
                                         action_list.append('/sell_206')
                                 else:
-                                    log('Донат {0} золота в казну замка'.format(gold-gold_to_left))
-                                    action_list.append('/donate {0}'.format(gold-gold_to_left))
+                                    log('Донат {0} золота в казну замка'.format(gold - gold_to_left))
+                                    action_list.append('/donate {0}'.format(gold - gold_to_left))
+                                    gold -= gold_to_left
                         update_order(castle)
                     return
-            log('Времени достаточно')
-            gold = int(re.search('💰(-?[0-9]+)', text).group(1))
-            endurance = int(re.search('Выносливость: ([0-9]+)', text).group(1))
-            log('Золото: {0}, выносливость: {1}'.format(gold, endurance))
-            inv = re.search('🎒Рюкзак: ([0-9]+)/([0-9]+)', text)
-            log('Рюкзак: {0} / {1}'.format(inv.group(1),inv.group(2)))
-            if text.find('🛌Отдых') == -1:
-              log('Чем-то занят, ждём')
+                else:
+                    # если битва через несколько секунд
+                    report = True
+                    return
+            time_to_war = int(m.group(1)) * 60 + int(m.group(2))
+            log('Времени достаточно. До боя осталось {0} минут'.format(time_to_war))
+            if report:
+                action_list.append('/report')
+                sleep(random.randint(3, 6))
+                log('запросили репорт по битве')
+                report = False
+            if text.find('🛌Отдых') == -1 and text.find('🛡Защита ') == -1:
+                log('Чем-то занят, ждём')
             else:
-              if text.find('🛌Отдых') != -1 and arena_running:
-                  arena_running = False
-              if peshera_enabled and endurance >= 2:
-                  if les_enabled:
-                      action_list.append(orders['quests'])
-                      action_list.append(random.choice([orders['peshera'], orders['les']]))
-                  else:
-                      action_list.append(orders['quests'])
-                      action_list.append(orders['peshera'])
+                # Подумаем, а надо ли так часто ходить куда нибудь )
+                if not build_enabled:
+                    log('на стройку нам не нужно')
+                    curhour = datetime.now(tz).hour
+                    if not arena_enabled or arena_delay or curhour > 23 or curhour < 8:
+                        log('на арену тоже не нужно')
+                        if int(endurancetop) - int(endurance) >= 4:
+                            # минут за 35-45 до битвы имеет смысл выйти из спячки
+                            sleeping = time_to_war * 60 - 60 * random.randint(35, 45)
+                            log('выносливости мало, можно и подремать до боя {0} минут'.format(int(sleeping / 60)))
+                            lt_info = time()
+                            get_info_diff = sleeping
+                            return
+                    elif gold < 5 and endurance == 0 and time_to_war > 60:
+                        sleeping = 60 * random.randint(30, 40)
+                        log('выносливости нет, денег нет, можно и подремать до боя {0} минут'.format(int(sleeping / 60)))
+                        lt_info = time()
+                        get_info_diff = sleeping
 
-              elif les_enabled and not peshera_enabled and endurance >= 1 and orders['les'] not in action_list:
-                  action_list.append(orders['quests'])
-                  action_list.append(orders['les'])
+                if text.find('🛌Отдых') != -1 and arena_running:
+                    arena_running = False
+                if peshera_enabled and endurance >= 2:
+                    if les_enabled:
+                        action_list.append(orders['quests'])
+                        action_list.append(random.choice([orders['peshera'], orders['les']]))
+                    else:
+                        action_list.append(orders['quests'])
+                        action_list.append(orders['peshera'])
 
-              elif arena_enabled and not arena_delay and gold >= 5 and not arena_running:
-                  curhour = datetime.now(tz).hour
-                  if 9 <= curhour <= 23:
-                      log('Включаем флаг - арена запущена')
-                      arena_running = True
-                      action_list.append(orders['castle_menu'])
-                      action_list.append('📯Арена')
-                      action_list.append('🔎Поиск соперника')
-                      log('Топаем на арену')
-                  else:
-                      log('По часам не проходим на арену. Сейчас ' + str(curhour) + ' часов')
-                      if build_enabled:
-                           log('Пойдем строить')
-                           action_list.append(orders['castle_menu'])
-                           action_list.append('🏘Постройки')
-                           action_list.append('🚧Стройка')
-                           action_list.append(build_target)
+                elif les_enabled and not peshera_enabled and endurance >= 1 and orders['les'] not in action_list:
+                    action_list.append(orders['quests'])
+                    action_list.append(orders['les'])
 
-              elif build_enabled:
-                  log('Пойдем строить')
-                  action_list.append(orders['castle_menu'])
-                  action_list.append('🏘Постройки')
-                  action_list.append('🚧Стройка')
-                  action_list.append(build_target)
+                elif arena_enabled and not arena_delay and gold >= 5 and not arena_running:
+                    curhour = datetime.now(tz).hour
+                    if 9 <= curhour <= 23:
+                        action_list.append(orders['castle_menu'])
+                        action_list.append('📯Арена')
+                    else:
+                        log('По часам не проходим на арену. Сейчас ' + str(curhour) + ' часов')
+                        if build_enabled:
+                            log('Пойдем строить')
+                            if random.randint(0, 1) == 0:
+                                action_list.append(build_target)
+                            else:
+                                action_list.append(orders['castle_menu'])
+                                action_list.append('🏘Постройки')
+                                action_list.append('🚧Стройка')
+                                action_list.append(build_target)
+
+                elif build_enabled:
+                    log('Пойдем строить')
+                    if random.randint(0, 1) == 0:
+                        action_list.append(build_target)
+                    else:
+                        action_list.append(orders['castle_menu'])
+                        action_list.append('🏘Постройки')
+                        action_list.append('🚧Стройка')
+                        action_list.append(build_target)
 
         elif arena_enabled and text.find('выбери точку атаки и точку защиты') != -1:
             arena_running = True #на случай, если арена запущена руками
             lt_arena = time()
+            lt_info = time()
+            get_info_diff = random.randint(400, 500)
             attack_chosen = arena_attack[random.randint(0, 2)]
             cover_chosen = arena_cover[random.randint(0, 2)]
             log('Атака: {0}, Защита: {1}'.format(attack_chosen, cover_chosen))
@@ -490,6 +604,8 @@ def parse_text(text, username, message_id):
                 action_list.append(attack_chosen)
 
         elif text.find('Победил воин') != -1 or text.find('Ничья') != -1:
+            lt_info = time()
+            get_info_diff = random.randint(60, 120)
             log('Выключаем флаг - арена закончилась')
             arena_running = False
 
@@ -510,6 +626,12 @@ def parse_text(text, username, message_id):
             fwd('@','PenguindrumStockBot',stock_id)
             twinkstock_enabled = False
             send_msg(pref, msg_receiver, 'Сток обновлен')
+
+    elif username == 'ChatWarsTradeBot' and resource_id!= '0':
+        if text.find('/add_'+resource_id) != -1:
+            count = re.search('/add_'+resource_id+'(\D+)(.*)', text).group(2)
+            send_msg('@',trade_bot,'/add_'+resource_id+' '+str(count))
+        resource_id='0'
 
     else:
         if bot_enabled and order_enabled and username in order_usernames:
@@ -577,7 +699,17 @@ def parse_text(text, username, message_id):
                     '#disable_build - Выключить постройки',
                     '#build_target - указать цель постройки ({0})'.format(','.join(builds)),
                     '#stock - Обновить стоки',
+                    '#info - немного оперативной информации'
                 ]))
+
+            # отправка info
+            elif text == '#info':
+                send_msg(pref, msg_receiver, '\n'.join([
+                    'Золото: {0}',
+                    'Выносливость: {1}',
+                    'Арена: {2} / {3}',
+                    'Побед на арене: {4}',
+                ]).format(gold, endurance, arenafight.group(1), arenafight.group(2), victory))
 
             # Вкл/выкл бота
             elif text == '#enable_bot':
@@ -598,7 +730,10 @@ def parse_text(text, username, message_id):
             elif text == '#enable_arena':
                 arena_enabled = True
                 write_config()
+                lt_info = time()
+                get_info_diff = random.randint(400, 500)
                 send_msg(pref, msg_receiver, 'Арена успешно включена')
+                log('Арена успешно включена, скоро пойдем бить морды')
             elif text == '#disable_arena':
                 arena_enabled = False
                 write_config()
@@ -726,6 +861,7 @@ def parse_text(text, username, message_id):
             elif text == '#log':
                 send_msg(pref, msg_receiver, '\n'.join(log_list))
                 log_list.clear()
+                log('Лог запрошен и очищен')
 
             elif text == '#lt_arena':
                 send_msg(pref, msg_receiver, str(lt_arena))
@@ -774,12 +910,17 @@ def parse_text(text, username, message_id):
             elif text == '#enable_build':
                 build_enabled = True
                 write_config()
+                lt_info = time()
+                get_info_diff = random.randint(400, 500)
                 send_msg(pref, msg_receiver, 'Постройка успешно включена')
+                log('Постройка успешно включена, скоро пойдем строить')
             elif text == '#disable_build':
                 build_enabled = False
                 write_config()
                 send_msg(pref, msg_receiver, 'Постройка успешно выключена')
-
+            elif text.startswith('#add'):
+                resource_id = text.split(' ')[1]
+                send_msg('@', trade_bot, '/stock')
 
 def send_msg(pref, to, message):
     sender.send_msg(pref + to, message)
