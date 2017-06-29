@@ -631,6 +631,11 @@ def parse_text(text, username, message_id):
         if text.find('/add_'+resource_id) != -1:
             count = re.search('/add_'+resource_id+'(\D+)(.*)', text).group(2)
             send_msg('@',trade_bot,'/add_'+resource_id+' '+str(count))
+            log('Добавили '+str(count)+' шт. ресурса '+resource_id)
+            send_msg(pref, msg_receiver, 'Добавлено '+str(count)+' шт. ресурса '+resource_id)
+        else:
+            log('На складе нет ресурса '+resource_id)
+            send_msg(pref, msg_receiver, 'На складе нет ресурса '+resource_id)
         resource_id='0'
 
     else:
@@ -918,9 +923,14 @@ def parse_text(text, username, message_id):
                 build_enabled = False
                 write_config()
                 send_msg(pref, msg_receiver, 'Постройка успешно выключена')
+
             elif text.startswith('#add'):
                 resource_id = text.split(' ')[1]
-                send_msg('@', trade_bot, '/stock')
+                send_msg('@', trade_bot, '/start')
+
+            elif text == '#done':
+                send_msg('@', trade_bot, '/done')
+                send_msg(pref, msg_receiver, 'Предложение готово!')
 
 def send_msg(pref, to, message):
     sender.send_msg(pref + to, message)
