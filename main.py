@@ -145,7 +145,8 @@ orders = {
     'sell': 'Скупка предметов',
     'lvl_def': '+1 🛡Защита',
     'lvl_atk': '+1 ⚔Атака',
-    'lvl_off': 'Выключен'
+    'lvl_off': 'Выключен',
+    'more':'🏝Побережье'
 }
 
 captcha_answers = {
@@ -203,6 +204,7 @@ bot_enabled = True
 arena_enabled = True
 les_enabled = True
 peshera_enabled = False
+more_enabled = False
 corovan_enabled = True
 order_enabled = True
 auto_def_enabled = True
@@ -293,6 +295,7 @@ def read_config():
     global arena_enabled
     global les_enabled
     global peshera_enabled
+    global more_enabled
     global corovan_enabled
     global auto_def_enabled
     global donate_enabled
@@ -306,6 +309,7 @@ def read_config():
     arena_enabled=config.getboolean(section, 'arena_enabled')
     les_enabled=config.getboolean(section, 'les_enabled')
     peshera_enabled=config.getboolean(section, 'peshera_enabled')
+    more_enabled=config.getboolean(section, 'more_enabled')
     corovan_enabled=config.getboolean(section, 'corovan_enabled')
     auto_def_enabled=config.getboolean(section, 'auto_def_enabled')
     donate_enabled=config.getboolean(section, 'donate_enabled')
@@ -322,6 +326,7 @@ def write_config():
     global arena_enabled
     global les_enabled
     global peshera_enabled
+    global more_enabled
     global corovan_enabled
     global auto_def_enabled
     global donate_enabled
@@ -338,6 +343,7 @@ def write_config():
     config.set(section, 'arena_enabled', str(arena_enabled))
     config.set(section, 'les_enabled', str(les_enabled))
     config.set(section, 'peshera_enabled', str(peshera_enabled))
+    config.set(section, 'more_enabled', str(more_enabled))
     config.set(section, 'corovan_enabled', str(corovan_enabled))
     config.set(section, 'auto_def_enabled', str(auto_def_enabled))
     config.set(section, 'donate_enabled', str(donate_enabled))
@@ -356,6 +362,7 @@ def parse_text(text, username, message_id):
     global arena_enabled
     global les_enabled
     global peshera_enabled
+    global more_enabled
     global corovan_enabled
     global order_enabled
     global auto_def_enabled
@@ -560,6 +567,10 @@ def parse_text(text, username, message_id):
                     action_list.append(orders['quests'])
                     action_list.append(orders['les'])
 
+                elif more_enabled and not les_enabled and not peshera_enabled and endurance >= 1 and orders['more'] not in action_list:
+                    action_list.append(orders['quests'])
+                    action_list.append(orders['more'])
+
                 elif arena_enabled and not arena_delay and gold >= 5 and not arena_running:
                     curhour = datetime.now(tz).hour
                     if 9 <= curhour <= 23:
@@ -676,6 +687,8 @@ def parse_text(text, username, message_id):
                     '#disable_les - Выключить лес',
                     '#enable_peshera - Включить пещеры',
                     '#disable_peshera - Выключить пещеры',
+                    '#enable_more - Включить побережье',
+                    '#disable_more - Выключить побережье',
                     '#enable_corovan - Включить корован',
                     '#disable_corovan - Выключить корован',
                     '#enable_order - Включить приказы',
@@ -764,6 +777,16 @@ def parse_text(text, username, message_id):
                 write_config()
                 send_msg(pref, msg_receiver, 'Пещеры успешно выключены')
 
+            # Вкл/выкл побережье
+            elif text == '#enable_more':
+                more_enabled = True
+                write_config()
+                send_msg(pref, msg_receiver, 'Побережье успешно включено')
+            elif text == '#disable_more':
+                more_enabled = False
+                write_config()
+                send_msg(pref, msg_receiver, 'Побережье успешно выключено')
+
             # Вкл/выкл корована
             elif text == '#enable_corovan':
                 corovan_enabled = True
@@ -844,15 +867,16 @@ def parse_text(text, username, message_id):
                     '🔎Сейчас на арене: {2}',
                     '🌲Лес включен: {3}',
                     '🕸Пещеры включены: {4}',
-                    '🐫Корованы включены: {5}',
-                    '🇪🇺Приказы включены: {6}',
-                    '🛡Авто деф включен: {7}',
-                    '💰Донат включен: {8}',
-                    '🏚Донат в лавку вместо казны: {9}',
-                    '🌟Левелап: {10}',
-		    '🏘Постройка включена: {11}',
-		    '🚧Цель постройки: {12}',
-                ]).format(bot_enabled, arena_enabled, arena_running, les_enabled, peshera_enabled, corovan_enabled, order_enabled,
+                    '🏝Побережье включено: {5}',
+                    '🐫Корованы включены: {6}',
+                    '🇪🇺Приказы включены: {7}',
+                    '🛡Авто деф включен: {8}',
+                    '💰Донат включен: {9}',
+                    '🏚Донат в лавку вместо казны: {10}',
+                    '🌟Левелап: {11}',
+                    '🏘Постройка включена: {12}',
+                    '🚧Цель постройки: {13}',
+                ]).format(bot_enabled, arena_enabled, arena_running, les_enabled, peshera_enabled, more_enabled, corovan_enabled, order_enabled,
                           auto_def_enabled, donate_enabled, donate_buying,orders[lvl_up],build_enabled,build_target))
 
             # Информация о герое
