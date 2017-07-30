@@ -376,7 +376,6 @@ def parse_text(text, username, message_id):
     global time_to_war
     global castle_name
     global castle
-    print(castle_name, ' 12ваыываавы321')
     if bot_enabled and username == bot_username:
         log('Получили сообщение от бота. Проверяем условия')
 
