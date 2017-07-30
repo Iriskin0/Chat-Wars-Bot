@@ -467,7 +467,7 @@ def parse_text(text, username, message_id):
         elif text.find('Битва семи замков через') != -1:
             if castle_name is None:
                 castle_name = flags[re.search('(.{2}).+, .+ замка', text).group(1)]
-                print('Замок: ', castle_name)
+                print('Замок:', castle_name)
                 castle = orders[castle_name]
             hero_message_id = message_id
             endurance = int(re.search('Выносливость: ([0-9]+)', text).group(1))
