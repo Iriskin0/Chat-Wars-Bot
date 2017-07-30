@@ -28,7 +28,7 @@ admin_username = ''
 order_usernames = ''
 
 # имя замка
-castle_name = 'blue'
+castle_name = None
 
 captcha_bot = 'ChatWarsCaptchaBot'
 
@@ -67,18 +67,7 @@ config = configparser.SafeConfigParser()
 # user_id бота, используется для поиска конфига
 bot_user_id = ''
 
-# читаем базовые конфиги из файла
-baseconfig.read(fullpath + '/config.cfg')
-if baseconfig.has_section('base'):
-    castle_name=baseconfig.get('base','castle_name')
-    admin_username=baseconfig.get('base','admin_username')
-    order_usernames=baseconfig.get('base','order_usernames')
-    host=baseconfig.get('base','host')
-    port=int(baseconfig.get('base','port'))
-    socket_path=baseconfig.get('base','socket_path')
-    group_name=baseconfig.get('base','group_name')
-
-opts, args = getopt(sys.argv[1:], 'a:o:c:s:h:p:g:b:l:n', ['admin=', 'order=', 'castle=', 'socket=', 'host=', 'port=',
+opts, args = getopt(sys.argv[1:], 'a:o:s:h:p:g:b:l:n', ['admin=', 'order=', 'socket=', 'host=', 'port=',
                                                           'gold=', 'buy=', 'lvlup=', 'group_name='])
 
 for opt, arg in opts:
@@ -86,8 +75,6 @@ for opt, arg in opts:
         admin_username = arg
     elif opt in ('-o', '--order'):
         order_usernames = arg.split(',')
-    elif opt in ('-c', '--castle'):
-        castle_name = arg
     elif opt in ('-s', '--socket'):
         socket_path = arg
     elif opt in ('-h', '--host'):
@@ -102,22 +89,6 @@ for opt, arg in opts:
         lvl_up = arg
     elif opt in ('-n', '--group_name'):
         group_name = arg
-
-
-# сохраняем базовые параметры в файл
-
-if baseconfig.has_section('base'):
-    baseconfig.remove_section('base')
-baseconfig.add_section('base')
-baseconfig.set('base','castle_name',str(castle_name))
-baseconfig.set('base','admin_username',str(admin_username))
-baseconfig.set('base','order_usernames',str(order_usernames))
-baseconfig.set('base','host',str(host))
-baseconfig.set('base','port',str(port))
-baseconfig.set('base','socket_path',str(socket_path))
-baseconfig.set('base','group_name',str(group_name))
-with open(fullpath + '/config.cfg','w+') as cfgfile:
-    baseconfig.write(cfgfile)
 
 orders = {
     'red': '🇮🇲',
@@ -177,10 +148,21 @@ builds = {
     'ambar': '/build_ambar'
 }
 
+flags = {
+    '🇪🇺': 'blue',
+    '🇮🇲': 'red',
+    '🇬🇵': 'black',
+    '🇻🇦': 'yellow',
+    '🇨🇾': 'white',
+    '🇰🇮': 'twilight',
+    '🇲🇴': 'mint',
+}
+    
+
 arena_cover = ['🛡головы', '🛡корпуса', '🛡ног']
 arena_attack = ['🗡в голову', '🗡по корпусу', '🗡по ногам']
-# поменять blue на red, black, white, yellow в зависимости от вашего замка
-castle = orders[castle_name]
+# ничо не менять, все подхватится само
+castle = orders['blue']
 # текущий приказ на атаку/защиту, по умолчанию всегда защита, трогать не нужно
 current_order = {'time': 0, 'order': castle}
 # задаем получателя ответов бота: админ или группа
@@ -249,7 +231,7 @@ def work_with_message(receiver):
         except Exception as err:
             log('Ошибка coroutine: {0}'.format(err))
 
-
+            
 def queue_worker():
     global get_info_diff
     global lt_info
@@ -392,6 +374,9 @@ def parse_text(text, username, message_id):
     global get_info_diff
     global lt_info
     global time_to_war
+    global castle_name
+    global castle
+    print(castle_name, ' 12ваыываавы321')
     if bot_enabled and username == bot_username:
         log('Получили сообщение от бота. Проверяем условия')
 
@@ -481,6 +466,10 @@ def parse_text(text, username, message_id):
             action_list.append(orders['corovan'])
 
         elif text.find('Битва семи замков через') != -1:
+            if castle_name is None:
+                castle_name = flags[re.search('(.{2}).+, .+ замка', text).group(1)]
+                print('Замок: ', castle_name)
+                castle = orders[castle_name]
             hero_message_id = message_id
             endurance = int(re.search('Выносливость: ([0-9]+)', text).group(1))
             endurancetop = int(re.search('Выносливость: ([0-9]+)/([0-9]+)', text).group(2))
