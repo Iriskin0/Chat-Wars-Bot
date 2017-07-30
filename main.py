@@ -196,10 +196,11 @@ build_enabled = False
 build_target = '/build_hq'
 twinkstock_enabled = False
 report = False
-arenafight = re.search('Поединков сегодня ([0-9]+) из ([0-9]+)', 'Поединков сегодня 0 из 0')
+arenafight = re.search('Поединков сегодня (\d+) из (\d+)', 'Поединков сегодня 0 из 0')
 victory = 0
 gold = 0
 endurance = 0
+level = 0
 
 arena_running = False
 arena_delay = False
@@ -376,6 +377,7 @@ def parse_text(text, username, message_id):
     global time_to_war
     global castle_name
     global castle
+    global level
     if bot_enabled and username == bot_username:
         log('Получили сообщение от бота. Проверяем условия')
 
@@ -467,14 +469,15 @@ def parse_text(text, username, message_id):
         elif text.find('Битва семи замков через') != -1:
             if castle_name is None:
                 castle_name = flags[re.search('(.{2}).+, .+ замка', text).group(1)]
-                print('Замок:', castle_name)
+                log('Замок: '+castle_name)
                 castle = orders[castle_name]
             hero_message_id = message_id
-            endurance = int(re.search('Выносливость: ([0-9]+)', text).group(1))
-            endurancetop = int(re.search('Выносливость: ([0-9]+)/([0-9]+)', text).group(2))
+            endurance = int(re.search('Выносливость: (\d+)', text).group(1))
+            endurancetop = int(re.search('Выносливость: (\d+)/(\d+)', text).group(2))
             gold = int(re.search('💰(-?[0-9]+)', text).group(1))
             inv = re.search('🎒Рюкзак: ([0-9]+)/([0-9]+)', text)
-            log('Золото: {0}, выносливость: {1} / {2}, Рюкзак: {3} / {4}'.format(gold, endurance, endurancetop,
+            level = int(re.search('🏅Уровень: (\d+)', text).group(1))
+            log('Уровень: {0}, золото: {1}, выносливость: {2} / {3}, Рюкзак: {4} / {5}'.format(level, gold, endurance, endurancetop,
                                                                                  inv.group(1), inv.group(2)))
             m = re.search('Битва семи замков через(?: ([0-9]+)ч){0,1}(?: ([0-9]+)){0,1} минут', text)
             if not m.group(1):
@@ -710,12 +713,8 @@ def parse_text(text, username, message_id):
 
             # отправка info
             elif text == '#info':
-                send_msg(pref, msg_receiver, '\n'.join([
-                    'Золото: {0}',
-                    'Выносливость: {1}',
-                    'Арена: {2} / {3}',
-                    'Побед на арене: {4}',
-                ]).format(gold, endurance, arenafight.group(1), arenafight.group(2), victory))
+                send_msg(pref, msg_receiver, '''🏅{0}, 💰{1}, 🔋{2}/{3}
+🤺{4}/{5}, 🌟{6}'''.format(level, gold, endurance, endurancetop, arenafight.group(1), arenafight.group(2), victory))
 
             # Вкл/выкл бота
             elif text == '#enable_bot':
@@ -729,8 +728,11 @@ def parse_text(text, username, message_id):
 
             # отправка стока
             elif text == '#stock':
-                twinkstock_enabled = True
-                send_msg('@','ChatWarsTradeBot','/start')
+                if level >= 15:
+                    twinkstock_enabled = True
+                    send_msg('@','ChatWarsTradeBot','/start')
+                else:
+                    send_msg(pref, msg_receiver, 'Я еще не дорос, у меня только '+str(level)+' уровень')
 
             # Вкл/выкл арены
             elif text == '#enable_arena':
@@ -937,13 +939,20 @@ def parse_text(text, username, message_id):
                 send_msg(pref, msg_receiver, 'Постройка успешно выключена')
 
             elif text.startswith('#add'):
-                resource_id = text.split(' ')[1]
-                send_msg('@', trade_bot, '/start')
+                if level >= 15:
+                    resource_id = text.split(' ')[1]
+                    send_msg('@', trade_bot, '/start')
+                else:
+                    send_msg(pref, msg_receiver, 'Я еще не дорос, у меня только '+str(level)+' уровень')
 
             elif text == '#done':
-                send_msg('@', trade_bot, '/done')
-                send_msg(pref, msg_receiver, 'Предложение готово!')
+                if level >= 15:
+                    send_msg('@', trade_bot, '/done')
+                    send_msg(pref, msg_receiver, 'Предложение готово!')
+                else:
+                    send_msg(pref, msg_receiver, 'Я еще не дорос, у меня только '+str(level)+' уровень')
 
+                    
 def send_msg(pref, to, message):
     sender.send_msg(pref + to, message)
 
