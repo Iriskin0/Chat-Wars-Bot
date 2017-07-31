@@ -28,7 +28,7 @@ admin_username = ''
 order_usernames = ''
 
 # имя замка
-castle_name = 'blue'
+castle_name = None
 
 captcha_bot = 'ChatWarsCaptchaBot'
 
@@ -67,18 +67,7 @@ config = configparser.SafeConfigParser()
 # user_id бота, используется для поиска конфига
 bot_user_id = ''
 
-# читаем базовые конфиги из файла
-baseconfig.read(fullpath + '/config.cfg')
-if baseconfig.has_section('base'):
-    castle_name=baseconfig.get('base','castle_name')
-    admin_username=baseconfig.get('base','admin_username')
-    order_usernames=baseconfig.get('base','order_usernames')
-    host=baseconfig.get('base','host')
-    port=int(baseconfig.get('base','port'))
-    socket_path=baseconfig.get('base','socket_path')
-    group_name=baseconfig.get('base','group_name')
-
-opts, args = getopt(sys.argv[1:], 'a:o:c:s:h:p:g:b:l:n', ['admin=', 'order=', 'castle=', 'socket=', 'host=', 'port=',
+opts, args = getopt(sys.argv[1:], 'a:o:s:h:p:g:b:l:n', ['admin=', 'order=', 'socket=', 'host=', 'port=',
                                                           'gold=', 'buy=', 'lvlup=', 'group_name='])
 
 for opt, arg in opts:
@@ -86,8 +75,6 @@ for opt, arg in opts:
         admin_username = arg
     elif opt in ('-o', '--order'):
         order_usernames = arg.split(',')
-    elif opt in ('-c', '--castle'):
-        castle_name = arg
     elif opt in ('-s', '--socket'):
         socket_path = arg
     elif opt in ('-h', '--host'):
@@ -102,22 +89,6 @@ for opt, arg in opts:
         lvl_up = arg
     elif opt in ('-n', '--group_name'):
         group_name = arg
-
-
-# сохраняем базовые параметры в файл
-
-if baseconfig.has_section('base'):
-    baseconfig.remove_section('base')
-baseconfig.add_section('base')
-baseconfig.set('base','castle_name',str(castle_name))
-baseconfig.set('base','admin_username',str(admin_username))
-baseconfig.set('base','order_usernames',str(order_usernames))
-baseconfig.set('base','host',str(host))
-baseconfig.set('base','port',str(port))
-baseconfig.set('base','socket_path',str(socket_path))
-baseconfig.set('base','group_name',str(group_name))
-with open(fullpath + '/config.cfg','w+') as cfgfile:
-    baseconfig.write(cfgfile)
 
 orders = {
     'red': '🇮🇲',
@@ -145,7 +116,8 @@ orders = {
     'sell': 'Скупка предметов',
     'lvl_def': '+1 🛡Защита',
     'lvl_atk': '+1 ⚔Атака',
-    'lvl_off': 'Выключен'
+    'lvl_off': 'Выключен',
+    'more':'🏝Побережье'
 }
 
 captcha_answers = {
@@ -176,10 +148,21 @@ builds = {
     'ambar': '/build_ambar'
 }
 
+flags = {
+    '🇪🇺': 'blue',
+    '🇮🇲': 'red',
+    '🇬🇵': 'black',
+    '🇻🇦': 'yellow',
+    '🇨🇾': 'white',
+    '🇰🇮': 'twilight',
+    '🇲🇴': 'mint',
+}
+    
+
 arena_cover = ['🛡головы', '🛡корпуса', '🛡ног']
 arena_attack = ['🗡в голову', '🗡по корпусу', '🗡по ногам']
-# поменять blue на red, black, white, yellow в зависимости от вашего замка
-castle = orders[castle_name]
+# ничо не менять, все подхватится само
+castle = orders['blue']
 # текущий приказ на атаку/защиту, по умолчанию всегда защита, трогать не нужно
 current_order = {'time': 0, 'order': castle}
 # задаем получателя ответов бота: админ или группа
@@ -203,6 +186,7 @@ bot_enabled = True
 arena_enabled = True
 les_enabled = True
 peshera_enabled = False
+more_enabled = False
 corovan_enabled = True
 order_enabled = True
 auto_def_enabled = True
@@ -212,10 +196,11 @@ build_enabled = False
 build_target = '/build_hq'
 twinkstock_enabled = False
 report = False
-arenafight = re.search('Поединков сегодня ([0-9]+) из ([0-9]+)', 'Поединков сегодня 0 из 0')
+arenafight = re.search('Поединков сегодня (\d+) из (\d+)', 'Поединков сегодня 0 из 0')
 victory = 0
 gold = 0
 endurance = 0
+level = 0
 
 arena_running = False
 arena_delay = False
@@ -247,7 +232,7 @@ def work_with_message(receiver):
         except Exception as err:
             log('Ошибка coroutine: {0}'.format(err))
 
-
+            
 def queue_worker():
     global get_info_diff
     global lt_info
@@ -293,6 +278,7 @@ def read_config():
     global arena_enabled
     global les_enabled
     global peshera_enabled
+    global more_enabled
     global corovan_enabled
     global auto_def_enabled
     global donate_enabled
@@ -306,6 +292,7 @@ def read_config():
     arena_enabled=config.getboolean(section, 'arena_enabled')
     les_enabled=config.getboolean(section, 'les_enabled')
     peshera_enabled=config.getboolean(section, 'peshera_enabled')
+    more_enabled=config.getboolean(section, 'more_enabled')
     corovan_enabled=config.getboolean(section, 'corovan_enabled')
     auto_def_enabled=config.getboolean(section, 'auto_def_enabled')
     donate_enabled=config.getboolean(section, 'donate_enabled')
@@ -322,6 +309,7 @@ def write_config():
     global arena_enabled
     global les_enabled
     global peshera_enabled
+    global more_enabled
     global corovan_enabled
     global auto_def_enabled
     global donate_enabled
@@ -338,6 +326,7 @@ def write_config():
     config.set(section, 'arena_enabled', str(arena_enabled))
     config.set(section, 'les_enabled', str(les_enabled))
     config.set(section, 'peshera_enabled', str(peshera_enabled))
+    config.set(section, 'more_enabled', str(more_enabled))
     config.set(section, 'corovan_enabled', str(corovan_enabled))
     config.set(section, 'auto_def_enabled', str(auto_def_enabled))
     config.set(section, 'donate_enabled', str(donate_enabled))
@@ -356,6 +345,7 @@ def parse_text(text, username, message_id):
     global arena_enabled
     global les_enabled
     global peshera_enabled
+    global more_enabled
     global corovan_enabled
     global order_enabled
     global auto_def_enabled
@@ -385,6 +375,9 @@ def parse_text(text, username, message_id):
     global get_info_diff
     global lt_info
     global time_to_war
+    global castle_name
+    global castle
+    global level
     if bot_enabled and username == bot_username:
         log('Получили сообщение от бота. Проверяем условия')
 
@@ -474,12 +467,17 @@ def parse_text(text, username, message_id):
             action_list.append(orders['corovan'])
 
         elif text.find('Битва семи замков через') != -1:
+            if castle_name is None:
+                castle_name = flags[re.search('(.{2}).+, .+ замка', text).group(1)]
+                log('Замок: '+castle_name)
+                castle = orders[castle_name]
             hero_message_id = message_id
-            endurance = int(re.search('Выносливость: ([0-9]+)', text).group(1))
-            endurancetop = int(re.search('Выносливость: ([0-9]+)/([0-9]+)', text).group(2))
+            endurance = int(re.search('Выносливость: (\d+)', text).group(1))
+            endurancetop = int(re.search('Выносливость: (\d+)/(\d+)', text).group(2))
             gold = int(re.search('💰(-?[0-9]+)', text).group(1))
             inv = re.search('🎒Рюкзак: ([0-9]+)/([0-9]+)', text)
-            log('Золото: {0}, выносливость: {1} / {2}, Рюкзак: {3} / {4}'.format(gold, endurance, endurancetop,
+            level = int(re.search('🏅Уровень: (\d+)', text).group(1))
+            log('Уровень: {0}, золото: {1}, выносливость: {2} / {3}, Рюкзак: {4} / {5}'.format(level, gold, endurance, endurancetop,
                                                                                  inv.group(1), inv.group(2)))
             m = re.search('Битва семи замков через(?: ([0-9]+)ч){0,1}(?: ([0-9]+)){0,1} минут', text)
             if not m.group(1):
@@ -560,6 +558,10 @@ def parse_text(text, username, message_id):
                     action_list.append(orders['quests'])
                     action_list.append(orders['les'])
 
+                elif more_enabled and not les_enabled and not peshera_enabled and endurance >= 1 and orders['more'] not in action_list:
+                    action_list.append(orders['quests'])
+                    action_list.append(orders['more'])
+
                 elif arena_enabled and not arena_delay and gold >= 5 and not arena_running:
                     curhour = datetime.now(tz).hour
                     if 9 <= curhour <= 23:
@@ -631,6 +633,11 @@ def parse_text(text, username, message_id):
         if text.find('/add_'+resource_id) != -1:
             count = re.search('/add_'+resource_id+'(\D+)(.*)', text).group(2)
             send_msg('@',trade_bot,'/add_'+resource_id+' '+str(count))
+            log('Добавили '+str(count)+' шт. ресурса '+resource_id)
+            send_msg(pref, msg_receiver, 'Добавлено '+str(count)+' шт. ресурса '+resource_id)
+        else:
+            log('На складе нет ресурса '+resource_id)
+            send_msg(pref, msg_receiver, 'На складе нет ресурса '+resource_id)
         resource_id='0'
 
     else:
@@ -673,6 +680,8 @@ def parse_text(text, username, message_id):
                     '#disable_les - Выключить лес',
                     '#enable_peshera - Включить пещеры',
                     '#disable_peshera - Выключить пещеры',
+                    '#enable_more - Включить побережье',
+                    '#disable_more - Выключить побережье',
                     '#enable_corovan - Включить корован',
                     '#disable_corovan - Выключить корован',
                     '#enable_order - Включить приказы',
@@ -706,12 +715,8 @@ def parse_text(text, username, message_id):
 
             # отправка info
             elif text == '#info':
-                send_msg(pref, msg_receiver, '\n'.join([
-                    'Золото: {0}',
-                    'Выносливость: {1}',
-                    'Арена: {2} / {3}',
-                    'Побед на арене: {4}',
-                ]).format(gold, endurance, arenafight.group(1), arenafight.group(2), victory))
+                send_msg(pref, msg_receiver, '''🏅{0}, 💰{1}, 🔋{2}/{3}
+🤺{4}/{5}, 🌟{6}'''.format(level, gold, endurance, endurancetop, arenafight.group(1), arenafight.group(2), victory))
 
             # Вкл/выкл бота
             elif text == '#enable_bot':
@@ -725,8 +730,11 @@ def parse_text(text, username, message_id):
 
             # отправка стока
             elif text == '#stock':
-                twinkstock_enabled = True
-                send_msg('@','ChatWarsTradeBot','/start')
+                if level >= 15:
+                    twinkstock_enabled = True
+                    send_msg('@','ChatWarsTradeBot','/start')
+                else:
+                    send_msg(pref, msg_receiver, 'Я еще не дорос, у меня только '+str(level)+' уровень')
 
             # Вкл/выкл арены
             elif text == '#enable_arena':
@@ -760,6 +768,16 @@ def parse_text(text, username, message_id):
                 peshera_enabled = False
                 write_config()
                 send_msg(pref, msg_receiver, 'Пещеры успешно выключены')
+
+            # Вкл/выкл побережье
+            elif text == '#enable_more':
+                more_enabled = True
+                write_config()
+                send_msg(pref, msg_receiver, 'Побережье успешно включено')
+            elif text == '#disable_more':
+                more_enabled = False
+                write_config()
+                send_msg(pref, msg_receiver, 'Побережье успешно выключено')
 
             # Вкл/выкл корована
             elif text == '#enable_corovan':
@@ -841,15 +859,16 @@ def parse_text(text, username, message_id):
                     '🔎Сейчас на арене: {2}',
                     '🌲Лес включен: {3}',
                     '🕸Пещеры включены: {4}',
-                    '🐫Корованы включены: {5}',
-                    '🇪🇺Приказы включены: {6}',
-                    '🛡Авто деф включен: {7}',
-                    '💰Донат включен: {8}',
-                    '🏚Донат в лавку вместо казны: {9}',
-                    '🌟Левелап: {10}',
-		    '🏘Постройка включена: {11}',
-		    '🚧Цель постройки: {12}',
-                ]).format(bot_enabled, arena_enabled, arena_running, les_enabled, peshera_enabled, corovan_enabled, order_enabled,
+                    '🏝Побережье включено: {5}',
+                    '🐫Корованы включены: {6}',
+                    '🇪🇺Приказы включены: {7}',
+                    '🛡Авто деф включен: {8}',
+                    '💰Донат включен: {9}',
+                    '🏚Донат в лавку вместо казны: {10}',
+                    '🌟Левелап: {11}',
+                    '🏘Постройка включена: {12}',
+                    '🚧Цель постройки: {13}',
+                ]).format(bot_enabled, arena_enabled, arena_running, les_enabled, peshera_enabled, more_enabled, corovan_enabled, order_enabled,
                           auto_def_enabled, donate_enabled, donate_buying,orders[lvl_up],build_enabled,build_target))
 
             # Информация о герое
@@ -920,10 +939,22 @@ def parse_text(text, username, message_id):
                 build_enabled = False
                 write_config()
                 send_msg(pref, msg_receiver, 'Постройка успешно выключена')
-            elif text.startswith('#add'):
-                resource_id = text.split(' ')[1]
-                send_msg('@', trade_bot, '/stock')
 
+            elif text.startswith('#add'):
+                if level >= 15:
+                    resource_id = text.split(' ')[1]
+                    send_msg('@', trade_bot, '/start')
+                else:
+                    send_msg(pref, msg_receiver, 'Я еще не дорос, у меня только '+str(level)+' уровень')
+
+            elif text == '#done':
+                if level >= 15:
+                    send_msg('@', trade_bot, '/done')
+                    send_msg(pref, msg_receiver, 'Предложение готово!')
+                else:
+                    send_msg(pref, msg_receiver, 'Я еще не дорос, у меня только '+str(level)+' уровень')
+
+                    
 def send_msg(pref, to, message):
     sender.send_msg(pref + to, message)
 
