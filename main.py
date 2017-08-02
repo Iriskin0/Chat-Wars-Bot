@@ -200,6 +200,7 @@ victory = 0
 gold = 0
 endurance = 0
 level = 0
+class_available = False
 
 arena_running = False
 arena_delay = False
@@ -377,6 +378,7 @@ def parse_text(text, username, message_id):
     global castle_name
     global castle
     global level
+    global class_available
     if bot_enabled and username == bot_username:
         log('Получили сообщение от бота. Проверяем условия')
 
@@ -470,6 +472,7 @@ def parse_text(text, username, message_id):
                 castle_name = flags[re.search('(.{2}).+, .+ замка', text).group(1)]
                 log('Замок: '+castle_name)
                 castle = orders[castle_name]
+            class_available = bool(re.search('Определись со специализацией', text))
             hero_message_id = message_id
             endurance = int(re.search('Выносливость: (\d+)', text).group(1))
             endurancetop = int(re.search('Выносливость: (\d+)/(\d+)', text).group(2))
@@ -712,7 +715,11 @@ def parse_text(text, username, message_id):
 
             # отправка info
             elif text == '#info':
-                infotext = '{0}{1}, 💰{2}, 🔋{3}/{4}'.format(castle, level, gold, endurance, endurancetop)
+                if class_available: 
+                    infotext = '🕯'
+                else:
+                    infotext = ''
+                infotext += '{0}{1}, 💰{2}, 🔋{3}/{4}'.format(castle, level, gold, endurance, endurancetop)
                 if arenafight.group(2) != '0':
                     infotext += '\n🤺{0}/{1}, 🌟{2}'.format(arenafight.group(1), arenafight.group(2), victory)
                 send_msg(pref, msg_receiver, infotext)
