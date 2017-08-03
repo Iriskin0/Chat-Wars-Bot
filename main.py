@@ -58,7 +58,7 @@ group_name = ''
 
 build_targed = '/build_hq'
 
-#id ресурса для трейда
+# id ресурса для трейда
 resource_id = '0'
 
 baseconfig = configparser.SafeConfigParser()
@@ -67,7 +67,7 @@ config = configparser.SafeConfigParser()
 # user_id бота, используется для поиска конфига
 bot_user_id = ''
 
-opts, args = getopt(sys.argv[1:], 'a:o:s:h:p:g:b:l:n', ['admin=', 'order=', 'socket=', 'host=', 'port=',
+opts, args = getopt(sys.argv[1:], 'a:o:s:h:p:g:b:l:n:', ['admin=', 'order=', 'socket=', 'host=', 'port=',
                                                           'gold=', 'buy=', 'lvlup=', 'group_name='])
 
 for opt, arg in opts:
@@ -89,7 +89,7 @@ for opt, arg in opts:
         lvl_up = arg
     elif opt in ('-n', '--group_name'):
         group_name = arg
-
+        
 orders = {
     'red': '🇮🇲',
     'black': '🇬🇵',
@@ -157,7 +157,6 @@ flags = {
     '🇰🇮': 'twilight',
     '🇲🇴': 'mint',
 }
-    
 
 arena_cover = ['🛡головы', '🛡корпуса', '🛡ног']
 arena_attack = ['🗡в голову', '🗡по корпусу', '🗡по ногам']
@@ -201,6 +200,7 @@ victory = 0
 gold = 0
 endurance = 0
 level = 0
+class_available = False
 
 arena_running = False
 arena_delay = False
@@ -378,6 +378,7 @@ def parse_text(text, username, message_id):
     global castle_name
     global castle
     global level
+    global class_available
     if bot_enabled and username == bot_username:
         log('Получили сообщение от бота. Проверяем условия')
 
@@ -444,8 +445,8 @@ def parse_text(text, username, message_id):
             gold -= 5
 
         elif 'Добро пожаловать на арену!' in text:
-            victory = re.search('Количество побед: ([0-9]+)', text).group(1)
-            arenafight = re.search('Поединков сегодня ([0-9]+) из ([0-9]+)', text)
+            victory = re.search('Количество побед: (\d+)', text).group(1)
+            arenafight = re.search('Поединков сегодня (\d+) из (\d+)', text)
             log('Поединков: {0} / {1}. Побед: {2}'.format(arenafight.group(1), arenafight.group(2), victory))
             if 'Даже драконы не могут драться так часто' in text:
                 arena_delay = True
@@ -471,6 +472,7 @@ def parse_text(text, username, message_id):
                 castle_name = flags[re.search('(.{2}).+, .+ замка', text).group(1)]
                 log('Замок: '+castle_name)
                 castle = orders[castle_name]
+            class_available = bool(re.search('Определись со специализацией', text))
             hero_message_id = message_id
             endurance = int(re.search('Выносливость: (\d+)', text).group(1))
             endurancetop = int(re.search('Выносливость: (\d+)/(\d+)', text).group(2))
@@ -713,8 +715,14 @@ def parse_text(text, username, message_id):
 
             # отправка info
             elif text == '#info':
-                send_msg(pref, msg_receiver, '''🏅{0}, 💰{1}, 🔋{2}/{3}
-🤺{4}/{5}, 🌟{6}'''.format(level, gold, endurance, endurancetop, arenafight.group(1), arenafight.group(2), victory))
+                if class_available: 
+                    infotext = '🕯'
+                else:
+                    infotext = ''
+                infotext += '{0}{1}, 💰{2}, 🔋{3}/{4}'.format(castle, level, gold, endurance, endurancetop)
+                if arenafight.group(2) != '0':
+                    infotext += '\n🤺{0}/{1}, 🌟{2}'.format(arenafight.group(1), arenafight.group(2), victory)
+                send_msg(pref, msg_receiver, infotext)
 
             # Вкл/выкл бота
             elif text == '#enable_bot':
