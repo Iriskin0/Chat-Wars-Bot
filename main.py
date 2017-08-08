@@ -1,5 +1,6 @@
 #!/usr/bin/python3
 # coding=utf-8
+
 from pytg.sender import Sender
 from pytg.receiver import Receiver
 from pytg.utils import coroutine
@@ -67,8 +68,11 @@ config = configparser.SafeConfigParser()
 # user_id бота, используется для поиска конфига
 bot_user_id = ''
 
-opts, args = getopt(sys.argv[1:], 'a:o:s:h:p:g:b:l:n:', ['admin=', 'order=', 'socket=', 'host=', 'port=',
-                                                          'gold=', 'buy=', 'lvlup=', 'group_name='])
+# apikey для IFTTT
+apikey = None
+
+opts, args = getopt(sys.argv[1:], 'a:o:s:h:p:g:b:l:n:k:', ['admin=', 'order=', 'socket=', 'host=', 'port=',
+                                                          'gold=', 'buy=', 'lvlup=', 'group_name=', 'apikey='])
 
 for opt, arg in opts:
     if opt in ('-a', '--admin'):
@@ -89,6 +93,11 @@ for opt, arg in opts:
         lvl_up = arg
     elif opt in ('-n', '--group_name'):
         group_name = arg
+    elif opt in ('-k', '--apikey'):
+        apikey = str(arg)
+
+if apikey is not None:
+    import requests
         
 orders = {
     'red': '🇮🇲',
@@ -101,6 +110,7 @@ orders = {
     'lesnoi_fort': '🌲Лесной форт',
     'les': '🌲Лес',
     'gorni_fort': '⛰Горный форт',
+    'morskoi_fort': '⚓️Морской форт',
     'gora': '⛰',
     'cover': '🛡 Защита',
     'attack': '⚔ Атака',
@@ -230,6 +240,9 @@ def work_with_message(receiver):
                 if 'username' in msg['sender']:
                     parse_text(msg['text'], msg['sender']['username'], msg['id'])
         except Exception as err:
+            if apikey is not None:
+                payload = {'value1': 'coroutine', 'value2': os.getpid(), 'value3': err}
+                r = requests.get("https://maker.ifttt.com/trigger/bot_error/with/key/"+apikey, params = payload)
             log('Ошибка coroutine: {0}'.format(err))
 
             
@@ -269,6 +282,9 @@ def queue_worker():
             sleep_time = random.randint(2, 5)
             sleep(sleep_time)
         except Exception as err:
+            if apikey is not None:
+                payload = {'value1': 'очереди', 'value2': os.getpid(), 'value3': err}
+                r = requests.get("https://maker.ifttt.com/trigger/bot_error/with/key/"+apikey, params = payload)
             log('Ошибка очереди: {0}'.format(err))
 
 def read_config():
@@ -662,6 +678,8 @@ def parse_text(text, username, message_id):
                 update_order(orders['lesnoi_fort'])
             elif text.find('⛰') != -1:
                 update_order(orders['gorni_fort'])
+            elif text.find('⚓️') != -1:
+                update_order(orders['morskoi_fort'])
             elif text.find('🛡') != -1:
                 update_order(castle)
             elif quest_fight_enabled and text.find('/fight') != -1:
@@ -721,7 +739,7 @@ def parse_text(text, username, message_id):
                     infotext = ''
                 infotext += '{0}{1}, 💰{2}, 🔋{3}/{4}'.format(castle, level, gold, endurance, endurancetop)
                 if arenafight.group(2) != '0':
-                    infotext += '\n🤺{0}/{1}, 🌟{2}'.format(arenafight.group(1), arenafight.group(2), victory)
+                    infotext += ', 🤺{0}/{1}, 🌟{2}'.format(arenafight.group(1), arenafight.group(2), victory)
                 send_msg(pref, msg_receiver, infotext)
 
             # Вкл/выкл бота
@@ -738,7 +756,7 @@ def parse_text(text, username, message_id):
             elif text == '#stock':
                 if level >= 15:
                     twinkstock_enabled = True
-                    send_msg('@','ChatWarsTradeBot','/start')
+                    send_msg('@',trade_bot,'/start')
                 else:
                     send_msg(pref, msg_receiver, 'Я еще не дорос, у меня только '+str(level)+' уровень')
 
