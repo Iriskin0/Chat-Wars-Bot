@@ -241,7 +241,7 @@ def work_with_message(receiver):
                     parse_text(msg['text'], msg['sender']['username'], msg['id'])
         except Exception as err:
             if apikey is not None:
-                payload = {'value1': 'coroutine', 'value2': os.getpid(), 'value3': err}
+                payload = {'value1': 'coroutine', 'value2': str(port), 'value3': err}
                 r = requests.get("https://maker.ifttt.com/trigger/bot_error/with/key/"+apikey, params = payload)
             log('Ошибка coroutine: {0}'.format(err))
 
@@ -283,7 +283,7 @@ def queue_worker():
             sleep(sleep_time)
         except Exception as err:
             if apikey is not None:
-                payload = {'value1': 'очереди', 'value2': os.getpid(), 'value3': err}
+                payload = {'value1': 'очереди', 'value2': str(port), 'value3': err}
                 r = requests.get("https://maker.ifttt.com/trigger/bot_error/with/key/"+apikey, params = payload)
             log('Ошибка очереди: {0}'.format(err))
 
