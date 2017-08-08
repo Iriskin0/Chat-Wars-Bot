@@ -241,8 +241,7 @@ def work_with_message(receiver):
                     parse_text(msg['text'], msg['sender']['username'], msg['id'])
         except Exception as err:
             if apikey is not None:
-                payload = {'value1': 'coroutine', 'value2': str(port), 'value3': err}
-                r = requests.get("https://maker.ifttt.com/trigger/bot_error/with/key/"+apikey, params = payload)
+                ifttt("bot_error", "coroutine", err)
             log('Ошибка coroutine: {0}'.format(err))
 
             
@@ -283,8 +282,7 @@ def queue_worker():
             sleep(sleep_time)
         except Exception as err:
             if apikey is not None:
-                payload = {'value1': 'очереди', 'value2': str(port), 'value3': err}
-                r = requests.get("https://maker.ifttt.com/trigger/bot_error/with/key/"+apikey, params = payload)
+                ifttt("bot_error", "очереди", err)
             log('Ошибка очереди: {0}'.format(err))
 
 def read_config():
@@ -986,6 +984,9 @@ def send_msg(pref, to, message):
 def fwd(pref, to, message_id):
     sender.fwd(pref + to, message_id)
 
+def ifttt(event, val2, val3):
+    payload = {'value1': str(port), 'value2': val2, 'value3': val3}
+    r = requests.get("https://maker.ifttt.com/trigger/"+event+"/with/key/"+apikey, params = payload)
 
 def update_order(order):
     current_order['order'] = order
