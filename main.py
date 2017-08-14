@@ -590,7 +590,7 @@ def parse_text(text, username, message_id):
                     # если битва через несколько секунд
                     report = True
                     return
-            time_to_war = int(m.group(1)) * 60 + int(m.group(2))
+            time_to_war = int(m.group(1) if m.group(1) else 0) * 60 + int(m.group(2) if m.group(2) else 0)
             log('Времени достаточно. До боя осталось {0} минут'.format(time_to_war))
             if report:
                 action_list.append('/report')
