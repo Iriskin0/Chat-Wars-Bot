@@ -70,7 +70,7 @@
 
 #### Интеграция с IFTTT (опционально)
 1) Регистрируемся/логинимся на [IFTTT.com](http://IFTTT.com)
-2) Заходим на [IFTTT.com/maker_webhooks](http://IFTTT.com/maker_webhooks), нажимаем Documentation, копируем apikey
+2) Заходим на [IFTTT.com/maker_webhooks](http://IFTTT.com/maker_webhooks), нажимает Connect если не подключено, потом нажимаем Documentation, копируем apikey
 3) Идем на [IFTTT.com/create](http://IFTTT.com/create), в графе This выбираем Webhooks, потом Receive a web request![](http://i.imgur.com/fM0SpmU.png "This")
 4) В Event Name вписываем `bot_error`
 5) В графе That можно использовать все что угодно, я использую 
