@@ -18,11 +18,11 @@
 
 #### Как запустить:<br />
   1) Устанавливаем telegram-cli по [официальной инструкции](https://github.com/vysheng/tg)<br />
-  2) Устанавливаем pip3: sudo apt-get install python3-pip<br />
-  3) Устанавливаем pytg для 3 питона: pip3 install pytg pytz requests<br />
-  4) Запускаем telegram-cli: ./telegram-cli --json -P 1338<br />
+  2) Устанавливаем pip3: `sudo apt-get install python3-pip`<br />
+  3) Устанавливаем pytg для 3 питона: `pip3 install pytg pytz requests`<br />
+  4) Запускаем telegram-cli: `./telegram-cli --json -P 1338`<br />
   5) Открываем еще один терминал<br />
-  5) Качаем этот скрипт (git clone https://github.com/Iriskin0/Chat-Wars-Bot.git) и запускаем: `python3 main.py --admin "ваш ник" --order "ник игроков/ботов, выдающих приказы, через запятую   без пробелов" --gold "сколько золота оставлять в кармане при автодонате" --buy "любое значение для включения доната в лавку" --lvlup "lvl_def - прокачка защиты/lvl_atk - прокачка атаки" --group_name 'название группового чата для отправки сообщений' --apikey "apikey для IFTTT, инструкция ниже"`<br />
+  5) Качаем этот скрипт (`git clone https://github.com/Iriskin0/Chat-Wars-Bot.git`) и запускаем: `python3 main.py --admin "ваш ник" --order "ник игроков/ботов, выдающих приказы, через запятую   без пробелов" --gold "сколько золота оставлять в кармане при автодонате" --buy "любое значение для включения доната в лавку" --lvlup "lvl_def - прокачка защиты/lvl_atk - прокачка атаки" --group_name 'название группового чата для отправки сообщений' --apikey "apikey для IFTTT, инструкция ниже"`<br />
   6) Для работы с капчой, начинаем общение с @ChatWarsCaptchaBot (тестируется) или бот сам первый напишет
   7) Для работы со стоками начинаем общение с @PenguindrumStockBot и объявляем майн профиль по инструкции бота
   
