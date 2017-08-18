@@ -224,6 +224,7 @@ quest_fight_enabled = True
 build_enabled = False
 build_target = '/build_hq'
 twinkstock_enabled = False
+trade_active = False
 report = False
 arenafight = re.search('Поединков сегодня (\d+) из (\d+)', 'Поединков сегодня 0 из 0')
 victory = 0
@@ -425,6 +426,7 @@ def parse_text(text, username, message_id):
     global arena_change_enabled
     global arena_item_id
     global non_arena_item_id
+    global trade_active
     if bot_enabled and username == bot_username:
         log('Получили сообщение от бота. Проверяем условия')
 
