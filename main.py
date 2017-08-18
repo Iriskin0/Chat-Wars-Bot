@@ -717,8 +717,8 @@ def parse_text(text, username, message_id):
         log('добавляем ресурсы по списку..')
         trade_active = True
         for res_id in resource_id_list:
-            if text.find('/add_'+res_id) != -1:
-                count = re.search('/add_'+res_id+'(\D+)(.*)', text).group(2)
+            if re.search('/add_'+res_id+'\b', text):
+                count = re.search('/add_'+res_id+'(?:\D+)(.*)', text).group(1)
                 send_msg('@',trade_bot,'/add_'+res_id+' '+str(count))
                 log('Добавили '+str(count)+' шт. ресурса '+res_id)
                 send_msg(pref, msg_receiver, 'Добавлено '+str(count)+' шт. ресурса '+res_id)
