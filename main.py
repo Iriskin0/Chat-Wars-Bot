@@ -62,7 +62,7 @@ group_name = ''
 build_targed = '/build_hq'
 
 # id ресурса для трейда
-resource_id = '0'
+resource_id_list = []
 
 config = configparser.SafeConfigParser()
 
@@ -405,7 +405,7 @@ def parse_text(text, username, message_id):
     global build_enabled
     global build_target
     global twinkstock_enabled
-    global resource_id
+    global resource_id_list
     global report
     global gold
     global inv
@@ -711,16 +711,25 @@ def parse_text(text, username, message_id):
             twinkstock_enabled = False
             send_msg(pref, msg_receiver, 'Сток обновлен')
 
-    elif username == 'ChatWarsTradeBot' and resource_id!= '0':
-        if text.find('/add_'+resource_id) != -1:
-            count = re.search('/add_'+resource_id+'(\D+)(.*)', text).group(2)
-            send_msg('@',trade_bot,'/add_'+resource_id+' '+str(count))
-            log('Добавили '+str(count)+' шт. ресурса '+resource_id)
-            send_msg(pref, msg_receiver, 'Добавлено '+str(count)+' шт. ресурса '+resource_id)
-        else:
-            log('На складе нет ресурса '+resource_id)
-            send_msg(pref, msg_receiver, 'На складе нет ресурса '+resource_id)
-        resource_id='0'
+    elif username == 'ChatWarsTradeBot' and len(resource_id_list)!= 0 and trade_active == False:
+        log('добавляем ресурсы по списку..')
+        trade_active = True
+        for res_id in resource_id_list:
+            if text.find('/add_'+res_id) != -1:
+                count = re.search('/add_'+res_id+'(\D+)(.*)', text).group(2)
+                send_msg('@',trade_bot,'/add_'+res_id+' '+str(count))
+                log('Добавили '+str(count)+' шт. ресурса '+res_id)
+                send_msg(pref, msg_receiver, 'Добавлено '+str(count)+' шт. ресурса '+res_id)
+                sleep_time = random.randint(2, 5)
+                sleep(sleep_time)
+            else:
+                log('На складе нет ресурса '+res_id)
+                send_msg(pref, msg_receiver, 'На складе нет ресурса '+res_id)
+        resource_id_list=[]
+        send_msg('@',trade_bot,'/done')
+        log('Предложение готово')
+        trade_active = False
+        send_msg(pref, msg_receiver, 'Предложение готово ')
 
     else:
         if bot_enabled and order_enabled and username in order_usernames:
@@ -1048,19 +1057,11 @@ def parse_text(text, username, message_id):
 
             elif text.startswith('#add'):
                 if level >= 15:
-                    resource_id = text.split(' ')[1]
+                    resource_id_list = text.split(' ')[1].split(',')
                     send_msg('@', trade_bot, '/start')
                 else:
                     send_msg(pref, msg_receiver, 'Я еще не дорос, у меня только '+str(level)+' уровень')
 
-            elif text == '#done':
-                if level >= 15:
-                    send_msg('@', trade_bot, '/done')
-                    send_msg(pref, msg_receiver, 'Предложение готово!')
-                else:
-                    send_msg(pref, msg_receiver, 'Я еще не дорос, у меня только '+str(level)+' уровень')
-
-                    
 def send_msg(pref, to, message):
     sender.send_msg(pref + to, message)
 
