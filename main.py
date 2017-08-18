@@ -1057,7 +1057,7 @@ def parse_text(text, username, message_id):
 
             elif text.startswith('#add'):
                 if level >= 15:
-                    resource_id_list = text.split(' ')[1].split(';')
+                    resource_id_list = text.split(' ')[1].split(',')
                     send_msg('@', trade_bot, '/start')
                 else:
                     send_msg(pref, msg_receiver, 'Я еще не дорос, у меня только '+str(level)+' уровень')
