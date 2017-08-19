@@ -327,6 +327,8 @@ def read_config():
     global build_enabled
     global build_target
     global arena_change_enabled
+    global arena_item_id
+    global non_arena_item_id
     section=str(bot_user_id)
     bot_enabled          = config.getboolean(section, 'bot_enabled')          if config.has_option(section, 'bot_enabled')          else bot_enabled
     arena_enabled        = config.getboolean(section, 'arena_enabled')        if config.has_option(section, 'arena_enabled')        else arena_enabled
