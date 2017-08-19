@@ -328,20 +328,22 @@ def read_config():
     global build_target
     global arena_change_enabled
     section=str(bot_user_id)
-    bot_enabled=config.getboolean(section, 'bot_enabled')
-    arena_enabled=config.getboolean(section, 'arena_enabled')
-    les_enabled=config.getboolean(section, 'les_enabled')
-    peshera_enabled=config.getboolean(section, 'peshera_enabled')
-    more_enabled=config.getboolean(section, 'more_enabled')
-    corovan_enabled=config.getboolean(section, 'corovan_enabled')
-    auto_def_enabled=config.getboolean(section, 'auto_def_enabled')
-    donate_enabled=config.getboolean(section, 'donate_enabled')
-    donate_buying=config.getboolean(section, 'donate_buying')
-    lvl_up=config.get(section, 'lvl_up')
-    quest_fight_enabled=config.getboolean(section, 'quest_fight_enabled')
-    build_enabled=config.getboolean(section, 'build_enabled')
-    build_target=config.get(section, 'build_target')
-    arena_change_enabled=config.getboolean(section, 'arena_change_enabled')
+    bot_enabled          = config.getboolean(section, 'bot_enabled')          if config.has_option(section, 'bot_enabled')          else bot_enabled
+    arena_enabled        = config.getboolean(section, 'arena_enabled')        if config.has_option(section, 'arena_enabled')        else arena_enabled
+    les_enabled          = config.getboolean(section, 'les_enabled')          if config.has_option(section, 'les_enabled')          else les_enabled
+    peshera_enabled      = config.getboolean(section, 'peshera_enabled')      if config.has_option(section, 'peshera_enabled')      else peshera_enabled
+    more_enabled         = config.getboolean(section, 'more_enabled')         if config.has_option(section, 'more_enabled')         else more_enabled
+    corovan_enabled      = config.getboolean(section, 'corovan_enabled')      if config.has_option(section, 'corovan_enabled')      else corovan_enabled
+    auto_def_enabled     = config.getboolean(section, 'auto_def_enabled')     if config.has_option(section, 'auto_def_enabled')     else auto_def_enabled
+    donate_enabled       = config.getboolean(section, 'donate_enabled')       if config.has_option(section, 'donate_enabled')       else donate_enabled
+    donate_buying        = config.getboolean(section, 'donate_buying')        if config.has_option(section, 'donate_buying')        else donate_buying
+    lvl_up               = config.get       (section, 'lvl_up')               if config.has_option(section, 'lvl_up')               else lvl_up
+    quest_fight_enabled  = config.getboolean(section, 'quest_fight_enabled')  if config.has_option(section, 'quest_fight_enabled')  else quest_fight_enabled
+    build_enabled        = config.getboolean(section, 'build_enabled')        if config.has_option(section, 'build_enabled')        else build_enabled
+    build_target         = config.get       (section, 'build_target')         if config.has_option(section, 'build_target')         else build_target
+    arena_change_enabled = config.getboolean(section, 'arena_change_enabled') if config.has_option(section, 'arena_change_enabled') else arena_change_enabled
+    arena_item_id        = config.get       (section, 'arena_item_id')        if config.has_option(section, 'arena_item_id')        else arena_item_id
+    non_arena_item_id    = config.get       (section, 'non_arena_item_id')    if config.has_option(section, 'non_arena_item_id')    else non_arena_item_id
 
 def write_config():
     global config
@@ -367,6 +369,8 @@ def write_config():
     config.set(section, 'bot_enabled', str(bot_enabled))
     config.set(section, 'arena_enabled', str(arena_enabled))
     config.set(section, 'arena_change_enabled', str(arena_change_enabled))
+    config.set(section, 'arena_item_id', str(arena_item_id))
+    config.set(section, 'non_arena_item_id', str(non_arena_item_id))
     config.set(section, 'les_enabled', str(les_enabled))
     config.set(section, 'peshera_enabled', str(peshera_enabled))
     config.set(section, 'more_enabled', str(more_enabled))
