@@ -159,7 +159,16 @@ builds = {
     'hq': '/build_hq',
     'gladiators': '/build_gladiators',
     'wall': '/build_wall',
-    'ambar': '/build_ambar'
+    'ambar': '/build_ambar',
+    'repair_stash': '/repair_stash',
+    'repair_sentries': '/repair_sentries',
+    'repair_monument': '/repair_monument',
+    'repair_warriors': '/repair_warriors',
+    'repair_teaparty': '/repair_teaparty',
+    'repair_hq': '/repair_hq',
+    'repair_gladiators': '/repair_gladiators',
+    'repair_wall': '/repair_wall',
+    'repair_ambar': '/repair_ambar'
 }
 
 flags = {
@@ -1000,6 +1009,23 @@ def parse_text(text, username, message_id):
                     send_msg(pref, msg_receiver, 'Информация о герое пока еще недоступна')
                 else:
                     fwd(pref, msg_receiver, hero_message_id)
+                    
+            elif text == '#detail':
+                if hero_message_id == 0:
+                    send_msg(pref, msg_receiver, 'Информация о герое пока еще недоступна')
+                else:
+                    heroText = sender.message_get(hero_message_id).text
+                    template = '{0}{1} {2}, 🏅{3}, ⚔️{4} 🛡{5}\n🔥{6}/{7} 🔋{8}/{9} 💰{10}\n🎽{11}'
+                    heroName  = re.search('.{2}(.*), (\w+) \w+ замка', heroText).group(1)
+                    heroClass = re.search('.{2}(.*), (\w+) \w+ замка', heroText).group(2)
+                    heroAtk   = re.search('⚔Атака: (\d+) 🛡Защита: (\d+)', heroText).group(1)
+                    heroDef   = re.search('⚔Атака: (\d+) 🛡Защита: (\d+)', heroText).group(2)
+                    heroExpNow  = re.search('🔥Опыт: (\d+)/(\d+)', heroText).group(1)
+                    heroExpNext = re.search('🔥Опыт: (\d+)/(\d+)', heroText).group(2)
+                    heroEquip = re.sub('\+', '', re.search('🎽Экипировка (.+)', heroText).group(1))
+                    # heroState = re.search('Состояние:\n(.+)', heroText).group(1)
+                    send_msg(pref, msg_receiver, template.format(castle, heroClass, heroName, level, heroAtk, heroDef, heroExpNow, heroExpNext, endurance, endurancetop, gold, heroEquip))
+                    # fwd(pref, msg_receiver, hero_message_id)
 
             # Получить лог
             elif text == '#log':
