@@ -819,17 +819,16 @@ def parse_text(text, username, message_id):
                     '#ping - Дебаг, проверить жив ли бот',
                     '#enable_build - Включить постройки',
                     '#disable_build - Выключить постройки',
-                    '#build_target - указать цель постройки ({0})'.format(','.join(builds)),
+                    '#build_target - указать цель постройки/починки ({0})'.format(','.join(builds)),
                     '#stock - Обновить стоки',
-                    '#info - немного оперативной информации'
+                    '#info - Немного оперативной информации',
+                    '#detail - Почти вся информация о герое, только компактнее',
+                    '#eval - Дебаг, выполнить запрос вручную'
                 ]))
 
             # отправка info
             elif text == '#info':
-                if class_available: 
-                    infotext = '🕯'
-                else:
-                    infotext = ''
+                infotext = '🕯' if class_available else ''
                 infotext += '{0}{1}, 💰{2}, 🔋{3}/{4}'.format(castle, level, gold, endurance, endurancetop)
                 if arenafight.group(2) != '0':
                     infotext += ', 🤺{0}/{1}, 🌟{2}'.format(arenafight.group(1), arenafight.group(2), victory)
@@ -1096,6 +1095,9 @@ def parse_text(text, username, message_id):
                     send_msg('@', trade_bot, '/start')
                 else:
                     send_msg(pref, msg_receiver, 'Я еще не дорос, у меня только '+str(level)+' уровень')
+                    
+            elif text.startswith('#eval'):
+                eval(re.search('#eval (.+)', text).group(1))
 
 def send_msg(pref, to, message):
     sender.send_msg(pref + to, message)
@@ -1105,8 +1107,7 @@ def fwd(pref, to, message_id):
     sender.fwd(pref + to, message_id)
 
 def ifttt(event, val2, val3):
-    payload = {'value1': str(port), 'value2': val2, 'value3': val3}
-    r = requests.get("https://maker.ifttt.com/trigger/"+event+"/with/key/"+apikey, params = payload)
+    requests.get("https://maker.ifttt.com/trigger/"+event+"/with/key/"+apikey, params = {'value1': str(port), 'value2': val2, 'value3': val3})
 
 def update_order(order):
     current_order['order'] = order
