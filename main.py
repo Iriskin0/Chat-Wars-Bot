@@ -749,7 +749,11 @@ def parse_text(text, username, message_id):
         send_msg(pref, msg_receiver, 'Предложение готово ')
 
     else:
-        if bot_enabled and order_enabled and username in order_usernames:
+        if quest_fight_enabled and text.find('/fight') != -1:
+            c = re.search('\/fight.*', text).group(0)
+            action_list.append(c)
+    
+        if bot_enabled and order_enabled and (username in order_usernames or username == admin_username):
             if text.find(orders['red']) != -1:
                 update_order(orders['red'])
             elif text.find(orders['black']) != -1:
@@ -772,9 +776,6 @@ def parse_text(text, username, message_id):
                 update_order(orders['morskoi_fort'])
             elif text.find('🛡') != -1:
                 update_order(castle)
-            elif quest_fight_enabled and text.find('/fight') != -1:
-                c = re.search('\/fight.*', text).group(0)
-                action_list.append(c)
 
         # send_msg(pref, admin_username, 'Получили команду ' + current_order['order'] + ' от ' + username)
         if username == admin_username:
