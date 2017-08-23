@@ -216,6 +216,7 @@ log_list = deque([], maxlen=30)
 lt_arena = 0
 get_info_diff = 360
 hero_message_id = 0
+report_message_id = 0
 last_captcha_id = 0
 gold_to_left = 0
 last_pet_play = 0
@@ -286,13 +287,13 @@ def queue_worker():
     global arena_delay_day
     global tz
     lt_info = 0
-    # гребаная магия
+    # Бот не пишет незнакомым юзерам, пока не поищет их
     print(sender.contacts_search(bot_username))
     print(sender.contacts_search(captcha_bot))
     print(sender.contacts_search(stock_bot))
     print(sender.contacts_search(trade_bot))
-    if castle_name == 'red':
-        print(sender.contacts_search(redstat_bot))
+    print(sender.contacts_search(redstat_bot))
+    print(sender.contacts_search(blueoysterbot))
     sleep(3)
     while True:
         try:
@@ -442,6 +443,7 @@ def parse_text(text, username, message_id):
     global arena_item_id
     global non_arena_item_id
     global trade_active
+    global report_message_id
     if bot_enabled and username == bot_username:
         log('Получили сообщение от бота. Проверяем условия')
 
@@ -476,9 +478,11 @@ def parse_text(text, username, message_id):
             log("Построили, сообщаем легату")
             fwd('@', 'RedStatBot', message_id)
 
-        elif 'Твои результаты в бою:' in text and castle_name == 'red':
-            log("Повоевали, сообщаем легату")
-            fwd('@', 'RedStatBot', message_id)
+        elif 'Твои результаты в бою:' in text:
+            if castle_name == 'red':
+                log("Повоевали, сообщаем легату")
+                fwd('@', 'RedStatBot', message_id)
+            report_message_id = message_id
 
         elif 'Закупка начинается. Отслеживание заказа:' in text:
             buytrade = re.search('обойдется примерно в ([0-9]+)💰', text).group(1)
@@ -639,7 +643,7 @@ def parse_text(text, username, message_id):
                 if text.find('🛌Отдых') != -1 and arena_running:
                     arena_running = False
                     
-                if re.search('Помощник:', text) is not None and pet_state == 'good' or pet_state == 'med' or pet_state == 'bad': 
+                if re.search('Помощник:', text) is not None and pet_state == 'med' or pet_state == 'bad': 
                     log('Идем проверить питомца')
                     action_list.append('/pet')
                 
@@ -666,7 +670,7 @@ def parse_text(text, username, message_id):
                         action_list.append('📯Арена')
                     else:
                         log('По часам не проходим на арену. Сейчас ' + str(curhour) + ' часов')
-                        if build_enabled:
+                        if build_enabled and level >= 10:
                             log('Пойдем строить')
                             if random.randint(0, 1) == 0:
                                 action_list.append(build_target)
@@ -676,7 +680,7 @@ def parse_text(text, username, message_id):
                                 action_list.append('🚧Стройка')
                                 action_list.append(build_target)
 
-                elif build_enabled:
+                elif build_enabled and level >= 10:
                     log('Пойдем строить')
                     if random.randint(0, 1) == 0:
                         action_list.append(build_target)
@@ -732,8 +736,8 @@ def parse_text(text, username, message_id):
         log('добавляем ресурсы по списку..')
         trade_active = True
         for res_id in resource_id_list:
-            if re.search('\/add_'+res_id+'\b', text):
-                count = re.search('/add_'+res_id+'(?:\D+)(.*)', text).group(1)
+            if re.search('\/add_'+res_id+' ', text):
+                count = re.search('/add_'+res_id+'\D+(.*)', text).group(1)
                 send_msg('@',trade_bot,'/add_'+res_id+' '+str(count))
                 log('Добавили '+str(count)+' шт. ресурса '+res_id)
                 send_msg(pref, msg_receiver, 'Добавлено '+str(count)+' шт. ресурса '+res_id)
@@ -749,7 +753,7 @@ def parse_text(text, username, message_id):
         send_msg(pref, msg_receiver, 'Предложение готово ')
 
     else:
-        if quest_fight_enabled and text.find('/fight') != -1:
+        if quest_fight_enabled and text.find('/fight') != -1 and level >= 15:
             c = re.search('\/fight.*', text).group(0)
             action_list.append(c)
     
@@ -1009,7 +1013,14 @@ def parse_text(text, username, message_id):
                     send_msg(pref, msg_receiver, 'Информация о герое пока еще недоступна')
                 else:
                     fwd(pref, msg_receiver, hero_message_id)
-                    
+            
+            # Информация о герое
+            elif text == '#report':
+                if report_message_id == 0:
+                    send_msg(pref, msg_receiver, 'Информация о репорте пока еще недоступна')
+                else:
+                    fwd(pref, msg_receiver, report_message_id)
+            
             elif text == '#detail':
                 if hero_message_id == 0:
                     send_msg(pref, msg_receiver, 'Информация о герое пока еще недоступна')
@@ -1025,7 +1036,6 @@ def parse_text(text, username, message_id):
                     heroEquip = re.sub('\+', '', re.search('🎽Экипировка (.+)', heroText).group(1))
                     # heroState = re.search('Состояние:\n(.+)', heroText).group(1)
                     send_msg(pref, msg_receiver, template.format(castle, heroClass, heroName, level, heroAtk, heroDef, heroExpNow, heroExpNext, endurance, endurancetop, gold, heroEquip))
-                    # fwd(pref, msg_receiver, hero_message_id)
 
             # Получить лог
             elif text == '#log':
