@@ -9,6 +9,8 @@ from time import time, sleep
 from getopt import getopt
 from datetime import datetime
 from threading import Timer
+from telethon import TelegramClient
+import telethon.tl.types
 import sys
 import os
 import re
@@ -19,6 +21,10 @@ import configparser
 
 pathname = os.path.dirname(sys.argv[0])
 fullpath = os.path.abspath(pathname)
+
+api_id = 160762
+api_hash = 'c5badc981f75e267598167ed528fcaa6'
+client = None
 
 # username игрового бота
 bot_username = 'ChatWarsBot'
@@ -224,7 +230,7 @@ else:
     pref = ''
     msg_receiver = group_name
 
-sender = Sender(sock=socket_path) if socket_path else Sender(host=host,port=port)
+sender = Sender(sock=socket_path) if socket_path else Sender(host=host, port=port)
 action_list = deque([])
 log_list = deque([], maxlen=30)
 lt_arena = 0
@@ -233,6 +239,8 @@ hero_message_id = 0
 report_message_id = 0
 last_captcha_id = 0
 last_pet_play = 0
+
+phone = '+{0}'.format(sender.get_self().phone)
 
 bot_enabled = True
 arena_enabled = True
@@ -254,6 +262,7 @@ gold = 0
 endurance = 0
 level = 0
 class_available = False
+auth_request = False
 
 arena_change_enabled = False
 arena_item_id = 0
@@ -268,6 +277,11 @@ tz = pytz.timezone('Europe/Moscow')
 @coroutine
 def work_with_message(receiver):
     global bot_user_id
+    global client
+    global api_id
+    global api_hash
+    global phone
+    global auth_request
     while True:
         msg = (yield)
         try:
@@ -275,6 +289,7 @@ def work_with_message(receiver):
                 if bot_user_id == '' and msg['sender']['username'] == bot_username:
                     bot_user_id = msg['receiver']['peer_id']
                     log('user_id найден: {0}'.format(bot_user_id))
+                    client = TelegramClient(str(bot_user_id), api_id, api_hash)
                     config.read(fullpath + '/bot_cfg/' + str(bot_user_id) + '.cfg')
                     if config.has_section(str(bot_user_id)):
                         log('Конфиг найден')
@@ -284,12 +299,21 @@ def work_with_message(receiver):
                         log('Конфиг не найден')
                         write_config()
                         log('Новый конфиг создан')
+                    if not client.is_user_authorized():
+                        client.send_code_request(phone)
+                        log('Отправляем запрос на логин телетона')
+                        auth_request = True
+                    else:
+                        log('Телетон залогинен')
                 # Проверяем наличие юзернейма, чтобы не вываливался Exception
                 if 'username' in msg['sender']:
                     parse_text(msg['text'], msg['sender']['username'], msg['id'])
                 if msg['sender']['peer_id'] == 777000:
-                    if 'Your login code:' in msg['text']:
-                        log(re.search('Your login code: ([0-9]+)', msg['text']).group(1))
+                    if 'Your login code:' in msg['text'] and auth_request:
+                        client.sign_in(phone, re.search('Your login code: ([0-9]+)', msg['text']).group(1))
+                        auth_request = False
+                        log('Телетон залогинен')
+
         except Exception as err:
             if apikey is not None:
                 ifttt("bot_error", "coroutine", err)
