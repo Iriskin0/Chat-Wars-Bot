@@ -10,7 +10,9 @@ from getopt import getopt
 from datetime import datetime
 from threading import Timer
 from telethon import TelegramClient
-import telethon.tl.types
+from telethon.tl.types import InputUser, InputPeerUser, InputPeerChat, InputPeerSelf
+from telethon.tl.functions.messages import GetInlineBotResultsRequest, SendInlineBotResultRequest
+from telethon.tl.functions.contacts import SearchRequest
 import sys
 import os
 import re
@@ -43,6 +45,7 @@ captcha_bot = 'ChatWarsCaptchaBot'
 stock_bot = 'PenguindrumStockBot'
 
 trade_bot = 'ChatWarsTradeBot'
+trade_bot_telethon = None
 
 redstat_bot = 'RedStatBot'
 
@@ -223,12 +226,14 @@ castle = orders['blue']
 # текущий приказ на атаку/защиту, по умолчанию всегда защита, трогать не нужно
 current_order = {'time': 0, 'order': castle}
 # задаем получателя ответов бота: админ или группа
-if group_name =='':
+if group_name == '':
     pref = '@'
     msg_receiver = admin_username
 else:
     pref = ''
     msg_receiver = group_name
+
+msg_receiver_telethon = None
 
 sender = Sender(sock=socket_path) if socket_path else Sender(host=host, port=port)
 action_list = deque([])
@@ -282,6 +287,9 @@ def work_with_message(receiver):
     global api_hash
     global phone
     global auth_request
+    global trade_bot_telethon
+    global msg_receiver_telethon
+    global admin_username
     while True:
         msg = (yield)
         try:
@@ -299,12 +307,30 @@ def work_with_message(receiver):
                         log('Конфиг не найден')
                         write_config()
                         log('Новый конфиг создан')
+                    client.connect()
                     if not client.is_user_authorized():
                         client.send_code_request(phone)
                         log('Отправляем запрос на логин телетона')
                         auth_request = True
                     else:
                         log('Телетон залогинен')
+                    trade_bot_telethon = client(SearchRequest(
+                        'ChatWarsTradeBot',
+                        1
+                    )).users[0]
+                    if group_name == '':
+                        search_res = client(SearchRequest(
+                            admin_username,
+                            1
+                        ))
+                        msg_receiver_telethon = InputPeerUser(search_res.users[0].id, search_res[0].access_hash)
+                    else:
+                        search_res = client(SearchRequest(
+                            group_name,
+                            1
+                        ))
+                        msg_receiver_telethon = InputPeerChat(search_res.chats[0].id)
+
                 # Проверяем наличие юзернейма, чтобы не вываливался Exception
                 if 'username' in msg['sender']:
                     parse_text(msg['text'], msg['sender']['username'], msg['id'])
@@ -822,7 +848,8 @@ def parse_text(text, username, message_id):
         send_msg('@', trade_bot, '/done')
         log('Предложение готово')
         trade_active = False
-        send_msg(pref, msg_receiver, 'Предложение готово ')
+        sleep(2)
+        send_last_trade_offer()
 
     else:
         if quest_fight_enabled and text.find('/fight') != -1 and level >= 15:
@@ -1209,6 +1236,25 @@ def log(text):
     message = '{0:%Y-%m-%d+ %H:%M:%S}'.format(datetime.now()) + ' ' + text
     print(message)
     log_list.append(message)
+
+
+def send_last_trade_offer():
+    global client
+    global msg_receiver_telethon
+    global trade_bot_telethon
+    query_results = client(GetInlineBotResultsRequest(
+        InputUser(trade_bot_telethon.id, trade_bot_telethon.access_hash),
+        InputPeerSelf(),
+        '',
+        ''
+    ))
+
+    client(SendInlineBotResultRequest(
+        msg_receiver_telethon,
+        query_results.query_id,
+        query_results.results[0].id
+    ))
+    log('Предложение отправлено')
 
 
 if __name__ == '__main__':
