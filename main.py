@@ -10,8 +10,8 @@ from getopt import getopt
 from datetime import datetime
 from threading import Timer
 from telethon import TelegramClient
-from telethon.tl.types import InputUser, InputPeerUser, InputPeerChat, InputPeerSelf
-from telethon.tl.functions.messages import GetInlineBotResultsRequest, SendInlineBotResultRequest
+from telethon.tl.types import InputUser, InputPeerUser, InputPeerChannel, InputPeerSelf, InputPeerEmpty
+from telethon.tl.functions.messages import GetInlineBotResultsRequest, SendInlineBotResultRequest, GetDialogsRequest
 from telethon.tl.functions.contacts import SearchRequest
 import sys
 import os
@@ -225,15 +225,6 @@ arena_attack = ['🗡в голову', '🗡по корпусу', '🗡по но
 castle = orders['blue']
 # текущий приказ на атаку/защиту, по умолчанию всегда защита, трогать не нужно
 current_order = {'time': 0, 'order': castle}
-# задаем получателя ответов бота: админ или группа
-if group_name == '':
-    pref = '@'
-    msg_receiver = admin_username
-else:
-    pref = ''
-    msg_receiver = group_name
-
-msg_receiver_telethon = None
 
 sender = Sender(sock=socket_path) if socket_path else Sender(host=host, port=port)
 action_list = deque([])
@@ -244,6 +235,16 @@ hero_message_id = 0
 report_message_id = 0
 last_captcha_id = 0
 last_pet_play = 0
+
+# задаем получателя ответов бота: админ или группа
+if group_name == '':
+    pref = '@'
+    msg_receiver = admin_username
+else:
+    pref = ''
+    msg_receiver = group_name
+
+msg_receiver_telethon = None
 
 phone = '+{0}'.format(sender.get_self().phone)
 
@@ -325,11 +326,25 @@ def work_with_message(receiver):
                         ))
                         msg_receiver_telethon = InputPeerUser(search_res.users[0].id, search_res.users[0].access_hash)
                     else:
-                        search_res = client(SearchRequest(
-                            group_name,
-                            1
-                        ))
-                        msg_receiver_telethon = InputPeerChat(search_res.chats[0].id)
+                        last_date = None
+                        chunk_size = 30
+                        while True:
+                            result = client(GetDialogsRequest(
+                                offset_date=last_date,
+                                offset_id=0,
+                                offset_peer=InputPeerEmpty(),
+                                limit=chunk_size
+                            ))
+                            last_date = min(msg.date for msg in result.messages)
+                            for chat in result.chats:
+                                if chat.title == 'Tvink_Inc.':
+                                    msg_receiver_telethon = InputPeerChannel(chat.id, chat.access_hash)
+                                    break
+                            else:
+                                if not result.dialogs:
+                                    break
+                                continue
+                            break
 
                 # Проверяем наличие юзернейма, чтобы не вываливался Exception
                 if 'username' in msg['sender']:
@@ -385,6 +400,7 @@ def queue_worker():
             if apikey is not None:
                 ifttt("bot_error", "очереди", err)
             log('Ошибка очереди: {0}'.format(err))
+
 
 def read_config():
     global config
@@ -826,7 +842,7 @@ def parse_text(text, username, message_id):
     elif username == 'ChatWarsTradeBot' and twinkstock_enabled:
         if text.find('Твой склад с материалами') != -1:
             stock_id = message_id
-            fwd('@','PenguindrumStockBot',stock_id)
+            fwd('@', 'PenguindrumStockBot', stock_id)
             twinkstock_enabled = False
             send_msg(pref, msg_receiver, 'Сток обновлен')
 
