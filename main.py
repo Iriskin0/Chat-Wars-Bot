@@ -323,7 +323,7 @@ def work_with_message(receiver):
                             admin_username,
                             1
                         ))
-                        msg_receiver_telethon = InputPeerUser(search_res.users[0].id, search_res[0].access_hash)
+                        msg_receiver_telethon = InputPeerUser(search_res.users[0].id, search_res.users[0].access_hash)
                     else:
                         search_res = client(SearchRequest(
                             group_name,
