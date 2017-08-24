@@ -22,8 +22,8 @@ import configparser
 pathname = os.path.dirname(sys.argv[0])
 fullpath = os.path.abspath(pathname)
 
-api_id = 160762
-api_hash = 'c5badc981f75e267598167ed528fcaa6'
+api_id = 67656
+api_hash = 'd6b2cb5d21032b39b53d9a51c2021934'
 client = None
 
 # username игрового бота
