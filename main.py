@@ -495,6 +495,14 @@ def parse_text(text, username, message_id):
                 log("Построили, сообщаем ойстеру")
                 fwd('@', 'BlueOysterBot', message_id)
 
+        elif 'Здание отремонтировано:' in text:
+            if castle_name == 'red':
+                log("Отремонтировали, сообщаем легату")
+                fwd('@', 'RedStatBot', message_id)
+            if castle_name == 'blue':
+                log("Отремонтировали, сообщаем ойстеру")
+                fwd('@', 'BlueOysterBot', message_id)
+
         elif 'Твои результаты в бою:' in text:
             if castle_name == 'red':
                 log("Повоевали, сообщаем легату")
