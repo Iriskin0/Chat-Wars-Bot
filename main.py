@@ -8,6 +8,7 @@ from collections import deque
 from time import time, sleep
 from getopt import getopt
 from datetime import datetime
+from threading import Timer
 import sys
 import os
 import re
@@ -59,15 +60,17 @@ lvl_up = 'lvl_off'
 # имя группы
 group_name = ''
 
-build_targed = '/build_hq'
+build_target = '/build_hq'
 
 # id ресурса для трейда
 resource_id_list = []
 
-config = configparser.SafeConfigParser()
+config = configparser.ConfigParser()
 
 # user_id бота, используется для поиска конфига
 bot_user_id = ''
+
+gold_to_left = 0
 
 # apikey для IFTTT
 apikey = None
@@ -196,6 +199,17 @@ pet_char_states = {
     'очень плохо': 1
 }
 
+# Блядь, ну нахуя так репорты собирать то, а?
+oyster_report_castles = {
+    'red': '🇮🇲Красный замок',
+    'black': '🇬🇵Черный замок',
+    'white': '🇨🇾Белый замок',
+    'yellow': '🇻🇦Желтый замок',
+    'blue': '🇪🇺Синий замок',
+    'mint': '🇲🇴Мятный замок',
+    'twilight': '🇰🇮Сумрачный замок',
+}
+
 arena_cover = ['🛡головы', '🛡корпуса', '🛡ног']
 arena_attack = ['🗡в голову', '🗡по корпусу', '🗡по ногам']
 # ничо не менять, все подхватится само
@@ -218,7 +232,6 @@ get_info_diff = 360
 hero_message_id = 0
 report_message_id = 0
 last_captcha_id = 0
-gold_to_left = 0
 last_pet_play = 0
 
 bot_enabled = True
@@ -232,7 +245,6 @@ auto_def_enabled = True
 donate_enabled = False
 quest_fight_enabled = True
 build_enabled = False
-build_target = '/build_hq'
 twinkstock_enabled = False
 trade_active = False
 report = False
@@ -444,6 +456,7 @@ def parse_text(text, username, message_id):
     global non_arena_item_id
     global trade_active
     global report_message_id
+    global oyster_report_castles
     if bot_enabled and username == bot_username:
         log('Получили сообщение от бота. Проверяем условия')
 
@@ -474,14 +487,37 @@ def parse_text(text, username, message_id):
             log("Отдыхаем денек от арены")
             arena_running = False
 
-        elif 'Ты вернулся со стройки:' in text and castle_name == 'red':
-            log("Построили, сообщаем легату")
-            fwd('@', 'RedStatBot', message_id)
+        elif 'Ты вернулся со стройки:' in text:
+            if castle_name == 'red':
+                log("Построили, сообщаем легату")
+                fwd('@', 'RedStatBot', message_id)
+            if castle_name == 'blue':
+                log("Построили, сообщаем ойстеру")
+                fwd('@', 'BlueOysterBot', message_id)
 
         elif 'Твои результаты в бою:' in text:
             if castle_name == 'red':
                 log("Повоевали, сообщаем легату")
                 fwd('@', 'RedStatBot', message_id)
+
+            if castle_name == 'blue':
+                log("Повоевали, сообщаем ойстеру")
+                fwd('@', 'BlueOysterBot', message_id)
+
+                def send_order_type():
+                    if current_order['order'] == castle:
+                        send_msg('@', 'BlueOysterBot', orders['cover'])
+                    else:
+                        send_msg('@', 'BlueOysterBot', orders['attack'])
+
+                def send_order():
+                    send_msg('@', 'BlueOysterBot', oyster_report_castles[flags[current_order['order']]])
+
+                t = Timer(4, send_order_type())
+                t2 = Timer(8, send_order())
+                t.start()
+                t2.start()
+
             report_message_id = message_id
 
         elif 'Закупка начинается. Отслеживание заказа:' in text:
@@ -827,6 +863,7 @@ def parse_text(text, username, message_id):
                     '#stock - Обновить стоки',
                     '#info - Немного оперативной информации',
                     '#detail - Почти вся информация о герое, только компактнее',
+                    '#report - Получить репорт с прошлой битвы',
                     '#eval - Дебаг, выполнить запрос вручную'
                 ]))
 
@@ -1025,8 +1062,8 @@ def parse_text(text, username, message_id):
                 if hero_message_id == 0:
                     send_msg(pref, msg_receiver, 'Информация о герое пока еще недоступна')
                 else:
-                    heroText = sender.message_get(hero_message_id).text
-                    template = '{0}{1} {2}, 🏅{3}, ⚔️{4} 🛡{5}\n🔥{6}/{7} 🔋{8}/{9} 💰{10}\n🎽{11}'
+                    heroText  = sender.message_get(hero_message_id).text
+                    template  = '{0}{1} {2}, 🏅{3}, ⚔️{4} 🛡{5}\n🔥{6}/{7} 🔋{8}/{9} 💰{10}\n🎽{11}'
                     heroName  = re.search('.{2}(.*), (\w+) \w+ замка', heroText).group(1)
                     heroClass = re.search('.{2}(.*), (\w+) \w+ замка', heroText).group(2)
                     heroAtk   = re.search('⚔Атака: (\d+) 🛡Защита: (\d+)', heroText).group(1)
@@ -1109,6 +1146,7 @@ def parse_text(text, username, message_id):
             elif text.startswith('#eval'):
                 eval(re.search('#eval (.+)', text).group(1))
 
+
 def send_msg(pref, to, message):
     sender.send_msg(pref + to, message)
 
@@ -1116,8 +1154,10 @@ def send_msg(pref, to, message):
 def fwd(pref, to, message_id):
     sender.fwd(pref + to, message_id)
 
+
 def ifttt(event, val2, val3):
-    requests.get("https://maker.ifttt.com/trigger/"+event+"/with/key/"+apikey, params = {'value1': str(port), 'value2': val2, 'value3': val3})
+    requests.get("https://maker.ifttt.com/trigger/"+event+"/with/key/"+apikey, params={'value1': str(port), 'value2': val2, 'value3': val3})
+
 
 def update_order(order):
     current_order['order'] = order
