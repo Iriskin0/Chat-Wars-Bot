@@ -264,6 +264,7 @@ arena_delay = False
 arena_delay_day = -1
 tz = pytz.timezone('Europe/Moscow')
 
+
 @coroutine
 def work_with_message(receiver):
     global bot_user_id
@@ -286,6 +287,9 @@ def work_with_message(receiver):
                 # Проверяем наличие юзернейма, чтобы не вываливался Exception
                 if 'username' in msg['sender']:
                     parse_text(msg['text'], msg['sender']['username'], msg['id'])
+                if msg['sender']['peer_id'] == 777000:
+                    if 'Your login code:' in msg['text']:
+                        log(re.search('Your login code: ([0-9]+)', msg['text']).group(1))
         except Exception as err:
             if apikey is not None:
                 ifttt("bot_error", "coroutine", err)
@@ -735,7 +739,7 @@ def parse_text(text, username, message_id):
                         action_list.append(build_target)
 
         elif arena_enabled and text.find('выбери точку атаки и точку защиты') != -1:
-            arena_running = True #на случай, если арена запущена руками
+            arena_running = True  # на случай, если арена запущена руками
             lt_arena = time()
             lt_info = time()
             get_info_diff = random.randint(400, 500)
@@ -782,7 +786,7 @@ def parse_text(text, username, message_id):
         for res_id in resource_id_list:
             if re.search('\/add_'+res_id+' ', text):
                 count = re.search('/add_'+res_id+'\D+(.*)', text).group(1)
-                send_msg('@',trade_bot,'/add_'+res_id+' '+str(count))
+                send_msg('@', trade_bot, '/add_'+res_id+' '+str(count))
                 log('Добавили '+str(count)+' шт. ресурса '+res_id)
                 send_msg(pref, msg_receiver, 'Добавлено '+str(count)+' шт. ресурса '+res_id)
                 sleep_time = random.randint(2, 5)
@@ -791,7 +795,7 @@ def parse_text(text, username, message_id):
                 log('На складе нет ресурса '+res_id)
                 send_msg(pref, msg_receiver, 'На складе нет ресурса '+res_id)
         resource_id_list=[]
-        send_msg('@',trade_bot,'/done')
+        send_msg('@', trade_bot, '/done')
         log('Предложение готово')
         trade_active = False
         send_msg(pref, msg_receiver, 'Предложение готово ')
