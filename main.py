@@ -294,13 +294,14 @@ def update_handler(update_object):
             and update_object.updates[0].message.via_bot_id == 278525885 \
             and update_object.updates[0].message.message.find(bot_name) != -1:
         log('Трейд')
-        answer = client(GetBotCallbackAnswerRequest(
-            InputPeerChannel(market_telethon.id, market_telethon.access_hash),
-            update_object.updates[0].message.id,
-            data=update_object.updates[0].message.reply_markup.rows[0].buttons[0].data
-        ))
-        if answer.message == 'Обмен произведен!':
-            log('Приняли трейд')
+        if update_object.updates[0].message.reply_markup.rows:
+            answer = client(GetBotCallbackAnswerRequest(
+                InputPeerChannel(market_telethon.id, market_telethon.access_hash),
+                update_object.updates[0].message.id,
+                data=update_object.updates[0].message.reply_markup.rows[0].buttons[0].data
+            ))
+            if answer.message == 'Обмен произведен!':
+                log('Приняли трейд')
 
 
 @coroutine
