@@ -292,7 +292,7 @@ def update_handler(update_object):
     if type(update_object) is UpdatesTg \
             and update_object.chats \
             and bot_name != '' \
-            and not isinstance(update_object.updates[0], MessageService):
+            and not isinstance(update_object, MessageService):
         for i, update in enumerate(update_object.updates):
             if update.message.message.find(bot_name) != -1:
                 index = i
