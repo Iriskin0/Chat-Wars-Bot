@@ -288,19 +288,28 @@ tz = pytz.timezone('Europe/Moscow')
 def update_handler(update_object):
     global market_telethon
     global client
+    index = None
     if type(update_object) is UpdatesTg \
             and update_object.chats \
-            and update_object.chats[0].username == 'ChatWarsMarket' \
-            and update_object.updates[0].message.via_bot_id == 278525885 \
-            and update_object.updates[0].message.message.find(bot_name) != -1:
-        log('Трейд')
-        answer = client(GetBotCallbackAnswerRequest(
-            InputPeerChannel(market_telethon.id, market_telethon.access_hash),
-            update_object.updates[0].message.id,
-            data=update_object.updates[0].message.reply_markup.rows[0].buttons[0].data
-        ))
-        if answer.message == 'Обмен произведен!':
-            log('Приняли трейд')
+            and bot_name != '':
+        for i, update in enumerate(update_object.updates):
+            if update.message.message.find(bot_name) != -1:
+                index = i
+        if index is not None \
+                and update_object.chats[0].username == 'ChatWarsMarket' \
+                and update_object.updates[index].message.via_bot_id == 278525885 \
+                and update_object.updates[index].message.message.find(bot_name) != -1:
+            log('Трейд')
+            if update_object.updates[0].message.reply_markup is None:
+                log('Нет разметки кнопок')
+            else:
+                answer = client(GetBotCallbackAnswerRequest(
+                    InputPeerChannel(market_telethon.id, market_telethon.access_hash),
+                    update_object.updates[0].message.id,
+                    data=update_object.updates[0].message.reply_markup.rows[0].buttons[0].data
+                ))
+                if answer.message == 'Обмен произведен!':
+                    log('Приняли трейд')
 
 
 @coroutine
@@ -378,6 +387,8 @@ def work_with_message(receiver):
                                     break
                                 continue
                             break
+
+                    action_list.append(orders['hero'])
 
                 # Проверяем наличие юзернейма, чтобы не вываливался Exception
                 if 'username' in msg['sender']:
@@ -895,7 +906,7 @@ def parse_text(text, username, message_id):
             else:
                 log('На складе нет ресурса '+res_id)
                 send_msg(pref, msg_receiver, 'На складе нет ресурса '+res_id)
-        resource_id_list=[]
+        resource_id_list = []
         send_msg('@', trade_bot, '/done')
         log('Предложение готово')
         trade_active = False
