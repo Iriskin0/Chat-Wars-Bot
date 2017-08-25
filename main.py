@@ -1,6 +1,7 @@
 #!/usr/bin/python3
 # coding=utf-8
 
+print('ЕСЛИ ВЫЛАЗИТ ОШИБКА ModuleNotFoundError: No module named \'telethon\' ПРОСТО ВЫПОЛНИТЕ КОМАНДУ pip3 install telethon')
 from pytg.sender import Sender
 from pytg.receiver import Receiver
 from pytg.utils import coroutine
@@ -9,6 +10,11 @@ from time import time, sleep
 from getopt import getopt
 from datetime import datetime
 from threading import Timer
+from telethon import TelegramClient
+# from telethon.tl.types import InputUser, InputPeerUser, InputPeerChannel, InputPeerSelf, InputPeerEmpty
+from telethon.tl.types import *
+from telethon.tl.functions.messages import GetInlineBotResultsRequest, SendInlineBotResultRequest, GetDialogsRequest, GetBotCallbackAnswerRequest
+from telethon.tl.functions.contacts import SearchRequest, ResolveUsernameRequest
 import sys
 import os
 import re
@@ -19,6 +25,10 @@ import configparser
 
 pathname = os.path.dirname(sys.argv[0])
 fullpath = os.path.abspath(pathname)
+
+api_id = 67656
+api_hash = 'd6b2cb5d21032b39b53d9a51c2021934'
+client = None
 
 # username игрового бота
 bot_username = 'ChatWarsBot'
@@ -37,6 +47,9 @@ captcha_bot = 'ChatWarsCaptchaBot'
 stock_bot = 'PenguindrumStockBot'
 
 trade_bot = 'ChatWarsTradeBot'
+trade_bot_telethon = None
+
+market_telethon = None
 
 redstat_bot = 'RedStatBot'
 
@@ -216,15 +229,8 @@ arena_attack = ['🗡в голову', '🗡по корпусу', '🗡по но
 castle = orders['blue']
 # текущий приказ на атаку/защиту, по умолчанию всегда защита, трогать не нужно
 current_order = {'time': 0, 'order': castle}
-# задаем получателя ответов бота: админ или группа
-if group_name =='':
-    pref = '@'
-    msg_receiver = admin_username
-else:
-    pref = ''
-    msg_receiver = group_name
 
-sender = Sender(sock=socket_path) if socket_path else Sender(host=host,port=port)
+sender = Sender(sock=socket_path) if socket_path else Sender(host=host, port=port)
 action_list = deque([])
 log_list = deque([], maxlen=30)
 lt_arena = 0
@@ -233,6 +239,18 @@ hero_message_id = 0
 report_message_id = 0
 last_captcha_id = 0
 last_pet_play = 0
+
+# задаем получателя ответов бота: админ или группа
+if group_name == '':
+    pref = '@'
+    msg_receiver = admin_username
+else:
+    pref = ''
+    msg_receiver = group_name
+
+msg_receiver_telethon = None
+
+phone = '+{0}'.format(sender.get_self().phone)
 
 bot_enabled = True
 arena_enabled = True
@@ -253,7 +271,9 @@ victory = 0
 gold = 0
 endurance = 0
 level = 0
+bot_name = ''
 class_available = False
+auth_request = False
 
 arena_change_enabled = False
 arena_item_id = 0
@@ -264,9 +284,47 @@ arena_delay = False
 arena_delay_day = -1
 tz = pytz.timezone('Europe/Moscow')
 
+
+def update_handler(update_object):
+    global market_telethon
+    global client
+    index = None
+    if type(update_object) is UpdatesTg \
+            and update_object.chats \
+            and bot_name != '' \
+            and not isinstance(update_object.updates[0], MessageService):
+        for i, update in enumerate(update_object.updates):
+            if update.message.message.find(bot_name) != -1:
+                index = i
+        if index is not None \
+                and update_object.chats[0].username == 'ChatWarsMarket' \
+                and update_object.updates[index].message.via_bot_id == 278525885 \
+                and update_object.updates[index].message.message.find(bot_name) != -1:
+            log('Трейд')
+            if update_object.updates[0].message.reply_markup is None:
+                log('Нет разметки кнопок')
+            else:
+                answer = client(GetBotCallbackAnswerRequest(
+                    InputPeerChannel(market_telethon.id, market_telethon.access_hash),
+                    update_object.updates[0].message.id,
+                    data=update_object.updates[0].message.reply_markup.rows[0].buttons[0].data
+                ))
+                if answer.message == 'Обмен произведен!':
+                    log('Приняли трейд')
+
+
 @coroutine
 def work_with_message(receiver):
     global bot_user_id
+    global client
+    global api_id
+    global api_hash
+    global phone
+    global auth_request
+    global trade_bot_telethon
+    global msg_receiver_telethon
+    global admin_username
+    global market_telethon
     while True:
         msg = (yield)
         try:
@@ -274,7 +332,9 @@ def work_with_message(receiver):
                 if bot_user_id == '' and msg['sender']['username'] == bot_username:
                     bot_user_id = msg['receiver']['peer_id']
                     log('user_id найден: {0}'.format(bot_user_id))
+                    client = TelegramClient(str(bot_user_id), api_id, api_hash)
                     config.read(fullpath + '/bot_cfg/' + str(bot_user_id) + '.cfg')
+
                     if config.has_section(str(bot_user_id)):
                         log('Конфиг найден')
                         read_config()
@@ -283,9 +343,63 @@ def work_with_message(receiver):
                         log('Конфиг не найден')
                         write_config()
                         log('Новый конфиг создан')
+
+                    client.connect()
+                    client.add_update_handler(update_handler)
+
+                    if not client.is_user_authorized():
+                        client.send_code_request(phone)
+                        log('Отправляем запрос на логин телетона')
+                        auth_request = True
+                    else:
+                        log('Телетон залогинен')
+
+                    trade_bot_telethon = client(SearchRequest(
+                        'ChatWarsTradeBot',
+                        1
+                    )).users[0]
+                    market_telethon = client(ResolveUsernameRequest(
+                        'ChatWarsMarket'
+                    )).chats[0]
+
+                    if group_name == '':
+                        search_res = client(SearchRequest(
+                            admin_username,
+                            1
+                        ))
+                        msg_receiver_telethon = InputPeerUser(search_res.users[0].id, search_res.users[0].access_hash)
+                    else:
+                        last_date = None
+                        chunk_size = 30
+                        while True:
+                            result = client(GetDialogsRequest(
+                                offset_date=last_date,
+                                offset_id=0,
+                                offset_peer=InputPeerEmpty(),
+                                limit=chunk_size
+                            ))
+                            last_date = min(msg.date for msg in result.messages)
+                            for chat in result.chats:
+                                if chat.title == 'Tvink_Inc.':
+                                    msg_receiver_telethon = InputPeerChannel(chat.id, chat.access_hash)
+                                    break
+                            else:
+                                if not result.dialogs:
+                                    break
+                                continue
+                            break
+
+                    action_list.append(orders['hero'])
+
                 # Проверяем наличие юзернейма, чтобы не вываливался Exception
                 if 'username' in msg['sender']:
                     parse_text(msg['text'], msg['sender']['username'], msg['id'])
+                if msg['sender']['peer_id'] == 777000:
+                    if 'Your login code:' in msg['text'] and auth_request:
+                        client.sign_in(phone, re.search('Your login code: ([0-9]+)', msg['text']).group(1))
+                        auth_request = False
+                        log('Телетон залогинен')
+
         except Exception as err:
             if apikey is not None:
                 ifttt("bot_error", "coroutine", err)
@@ -331,6 +445,7 @@ def queue_worker():
             if apikey is not None:
                 ifttt("bot_error", "очереди", err)
             log('Ошибка очереди: {0}'.format(err))
+
 
 def read_config():
     global config
@@ -457,6 +572,7 @@ def parse_text(text, username, message_id):
     global trade_active
     global report_message_id
     global oyster_report_castles
+    global bot_name
     if bot_enabled and username == bot_username:
         log('Получили сообщение от бота. Проверяем условия')
 
@@ -604,6 +720,7 @@ def parse_text(text, username, message_id):
                 castle_name = flags[re.search('(.{2}).*, .+ замка', text).group(1)]
                 log('Замок: '+castle_name)
                 castle = orders[castle_name]
+                bot_name = re.search('.{4}(.*), .+ замка', text).group(1)
             class_available = bool(re.search('Определись со специализацией', text))
             hero_message_id = message_id
             endurance = int(re.search('Выносливость: (\d+)', text).group(1))
@@ -735,7 +852,7 @@ def parse_text(text, username, message_id):
                         action_list.append(build_target)
 
         elif arena_enabled and text.find('выбери точку атаки и точку защиты') != -1:
-            arena_running = True #на случай, если арена запущена руками
+            arena_running = True  # на случай, если арена запущена руками
             lt_arena = time()
             lt_info = time()
             get_info_diff = random.randint(400, 500)
@@ -772,7 +889,7 @@ def parse_text(text, username, message_id):
     elif username == 'ChatWarsTradeBot' and twinkstock_enabled:
         if text.find('Твой склад с материалами') != -1:
             stock_id = message_id
-            fwd('@','PenguindrumStockBot',stock_id)
+            fwd('@', 'PenguindrumStockBot', stock_id)
             twinkstock_enabled = False
             send_msg(pref, msg_receiver, 'Сток обновлен')
 
@@ -782,7 +899,7 @@ def parse_text(text, username, message_id):
         for res_id in resource_id_list:
             if re.search('\/add_'+res_id+' ', text):
                 count = re.search('/add_'+res_id+'\D+(.*)', text).group(1)
-                send_msg('@',trade_bot,'/add_'+res_id+' '+str(count))
+                send_msg('@', trade_bot, '/add_'+res_id+' '+str(count))
                 log('Добавили '+str(count)+' шт. ресурса '+res_id)
                 send_msg(pref, msg_receiver, 'Добавлено '+str(count)+' шт. ресурса '+res_id)
                 sleep_time = random.randint(2, 5)
@@ -790,11 +907,12 @@ def parse_text(text, username, message_id):
             else:
                 log('На складе нет ресурса '+res_id)
                 send_msg(pref, msg_receiver, 'На складе нет ресурса '+res_id)
-        resource_id_list=[]
-        send_msg('@',trade_bot,'/done')
+        resource_id_list = []
+        send_msg('@', trade_bot, '/done')
         log('Предложение готово')
         trade_active = False
-        send_msg(pref, msg_receiver, 'Предложение готово ')
+        sleep(2)
+        send_last_trade_offer()
 
     else:
         if quest_fight_enabled and text.find('/fight') != -1 and level >= 15:
@@ -1181,6 +1299,25 @@ def log(text):
     message = '{0:%Y-%m-%d+ %H:%M:%S}'.format(datetime.now()) + ' ' + text
     print(message)
     log_list.append(message)
+
+
+def send_last_trade_offer():
+    global client
+    global msg_receiver_telethon
+    global trade_bot_telethon
+    query_results = client(GetInlineBotResultsRequest(
+        InputUser(trade_bot_telethon.id, trade_bot_telethon.access_hash),
+        InputPeerSelf(),
+        '',
+        ''
+    ))
+
+    client(SendInlineBotResultRequest(
+        msg_receiver_telethon,
+        query_results.query_id,
+        query_results.results[0].id
+    ))
+    log('Предложение отправлено')
 
 
 if __name__ == '__main__':
