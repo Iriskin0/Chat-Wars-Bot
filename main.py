@@ -11,9 +11,10 @@ from getopt import getopt
 from datetime import datetime
 from threading import Timer
 from telethon import TelegramClient
-from telethon.tl.types import InputUser, InputPeerUser, InputPeerChannel, InputPeerSelf, InputPeerEmpty
-from telethon.tl.functions.messages import GetInlineBotResultsRequest, SendInlineBotResultRequest, GetDialogsRequest
-from telethon.tl.functions.contacts import SearchRequest
+# from telethon.tl.types import InputUser, InputPeerUser, InputPeerChannel, InputPeerSelf, InputPeerEmpty
+from telethon.tl.types import *
+from telethon.tl.functions.messages import GetInlineBotResultsRequest, SendInlineBotResultRequest, GetDialogsRequest, GetBotCallbackAnswerRequest
+from telethon.tl.functions.contacts import SearchRequest, ResolveUsernameRequest
 import sys
 import os
 import re
@@ -47,6 +48,8 @@ stock_bot = 'PenguindrumStockBot'
 
 trade_bot = 'ChatWarsTradeBot'
 trade_bot_telethon = None
+
+market_telethon = None
 
 redstat_bot = 'RedStatBot'
 
@@ -268,6 +271,7 @@ victory = 0
 gold = 0
 endurance = 0
 level = 0
+bot_name = ''
 class_available = False
 auth_request = False
 
@@ -281,6 +285,23 @@ arena_delay_day = -1
 tz = pytz.timezone('Europe/Moscow')
 
 
+def update_handler(update_object):
+    global market_telethon
+    global client
+    if type(update_object) is UpdatesTg \
+            and update_object.chats \
+            and update_object.chats[0].username == 'ChatWarsMarket' \
+            and update_object.updates[0].message.via_bot_id == 278525885 \
+            and bot_name in update_object.updates[0].message.message:
+        answer = client(GetBotCallbackAnswerRequest(
+            InputPeerChannel(market_telethon.id, market_telethon.access_hash),
+            update_object.updates[0].message.id,
+            data=update_object.updates[0].message.reply_markup.rows[0].buttons[0].data
+        ))
+        if answer.message == 'Обмен произведен!':
+            log('Приняли трейд')
+
+
 @coroutine
 def work_with_message(receiver):
     global bot_user_id
@@ -292,6 +313,7 @@ def work_with_message(receiver):
     global trade_bot_telethon
     global msg_receiver_telethon
     global admin_username
+    global market_telethon
     while True:
         msg = (yield)
         try:
@@ -301,6 +323,7 @@ def work_with_message(receiver):
                     log('user_id найден: {0}'.format(bot_user_id))
                     client = TelegramClient(str(bot_user_id), api_id, api_hash)
                     config.read(fullpath + '/bot_cfg/' + str(bot_user_id) + '.cfg')
+
                     if config.has_section(str(bot_user_id)):
                         log('Конфиг найден')
                         read_config()
@@ -309,17 +332,24 @@ def work_with_message(receiver):
                         log('Конфиг не найден')
                         write_config()
                         log('Новый конфиг создан')
+
                     client.connect()
+
                     if not client.is_user_authorized():
                         client.send_code_request(phone)
                         log('Отправляем запрос на логин телетона')
                         auth_request = True
                     else:
                         log('Телетон залогинен')
+
                     trade_bot_telethon = client(SearchRequest(
                         'ChatWarsTradeBot',
                         1
                     )).users[0]
+                    market_telethon = client(ResolveUsernameRequest(
+                        'ChatWarsMarket'
+                    )).chats[0]
+
                     if group_name == '':
                         search_res = client(SearchRequest(
                             admin_username,
@@ -528,6 +558,7 @@ def parse_text(text, username, message_id):
     global trade_active
     global report_message_id
     global oyster_report_castles
+    global bot_name
     if bot_enabled and username == bot_username:
         log('Получили сообщение от бота. Проверяем условия')
 
@@ -675,6 +706,7 @@ def parse_text(text, username, message_id):
                 castle_name = flags[re.search('(.{2}).*, .+ замка', text).group(1)]
                 log('Замок: '+castle_name)
                 castle = orders[castle_name]
+                bot_name = re.search('.{4}(.*), .+ замка', text).group(1)
             class_available = bool(re.search('Определись со специализацией', text))
             hero_message_id = message_id
             endurance = int(re.search('Выносливость: (\d+)', text).group(1))
@@ -1275,6 +1307,7 @@ def send_last_trade_offer():
 
 
 if __name__ == '__main__':
+    client.add_update_handler(update_handler)
     receiver = Receiver(sock=socket_path) if socket_path else Receiver(port=port)
     receiver.start()  # start the Connector.
     _thread.start_new_thread(queue_worker, ())
