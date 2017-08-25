@@ -291,11 +291,11 @@ def update_handler(update_object):
     index = None
     if type(update_object) is UpdatesTg \
             and update_object.chats:
-        for i, update in update_object.updates:
+        for i, update in enumerate(update_object.updates):
             if update.message.message.find(bot_name) != -1:
                 index = i
         if index is not None \
-                and update_object.chats[index].username == 'ChatWarsMarket' \
+                and update_object.chats[0].username == 'ChatWarsMarket' \
                 and update_object.updates[index].message.via_bot_id == 278525885 \
                 and bot_name != '' \
                 and update_object.updates[index].message.message.find(bot_name) != -1:
