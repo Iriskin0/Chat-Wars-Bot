@@ -380,6 +380,8 @@ def work_with_message(receiver):
                                 continue
                             break
 
+                    send_msg('@', bot_username, orders['hero'])
+
                 # Проверяем наличие юзернейма, чтобы не вываливался Exception
                 if 'username' in msg['sender']:
                     parse_text(msg['text'], msg['sender']['username'], msg['id'])
@@ -896,7 +898,7 @@ def parse_text(text, username, message_id):
             else:
                 log('На складе нет ресурса '+res_id)
                 send_msg(pref, msg_receiver, 'На складе нет ресурса '+res_id)
-        resource_id_list=[]
+        resource_id_list = []
         send_msg('@', trade_bot, '/done')
         log('Предложение готово')
         trade_active = False
