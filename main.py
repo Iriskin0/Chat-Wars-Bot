@@ -292,7 +292,8 @@ def update_handler(update_object):
             and update_object.chats \
             and update_object.chats[0].username == 'ChatWarsMarket' \
             and update_object.updates[0].message.via_bot_id == 278525885 \
-            and bot_name in update_object.updates[0].message.message:
+            and update_object.updates[0].message.message.find(bot_name) != -1:
+        log('Трейд')
         answer = client(GetBotCallbackAnswerRequest(
             InputPeerChannel(market_telethon.id, market_telethon.access_hash),
             update_object.updates[0].message.id,
@@ -334,6 +335,7 @@ def work_with_message(receiver):
                         log('Новый конфиг создан')
 
                     client.connect()
+                    client.add_update_handler(update_handler)
 
                     if not client.is_user_authorized():
                         client.send_code_request(phone)
@@ -1307,7 +1309,6 @@ def send_last_trade_offer():
 
 
 if __name__ == '__main__':
-    client.add_update_handler(update_handler)
     receiver = Receiver(sock=socket_path) if socket_path else Receiver(port=port)
     receiver.start()  # start the Connector.
     _thread.start_new_thread(queue_worker, ())
