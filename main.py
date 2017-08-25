@@ -295,7 +295,9 @@ def update_handler(update_object):
             and bot_name != '' \
             and update_object.updates[0].message.message.find(bot_name) != -1:
         log('Трейд')
-        if update_object.updates[0].message.reply_markup.rows:
+        if update_object.updates[0].message.reply_markup is None:
+            log('Нет разметки кнопок')
+        else:
             answer = client(GetBotCallbackAnswerRequest(
                 InputPeerChannel(market_telethon.id, market_telethon.access_hash),
                 update_object.updates[0].message.id,
