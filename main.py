@@ -380,7 +380,7 @@ def work_with_message(receiver):
                                 continue
                             break
 
-                    send_msg('@', bot_username, orders['hero'])
+                    action_list.append(orders['hero'])
 
                 # Проверяем наличие юзернейма, чтобы не вываливался Exception
                 if 'username' in msg['sender']:
