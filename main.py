@@ -1,6 +1,7 @@
 #!/usr/bin/python3
 # coding=utf-8
 
+print('ЕСЛИ ВЫЛАЗИТ ОШИБКА ModuleNotFoundError: No module named \'telethon\' ПРОСТО ВЫПОЛНИТЕ КОМАНДУ pip3 install telethon')
 from pytg.sender import Sender
 from pytg.receiver import Receiver
 from pytg.utils import coroutine
