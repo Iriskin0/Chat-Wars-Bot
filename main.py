@@ -1,5 +1,7 @@
 #!/usr/bin/python3
 # coding=utf-8
+
+print('ЕСЛИ ВЫЛАЗИТ ОШИБКА ModuleNotFoundError: No module named \'telethon\' ПРОСТО ВЫПОЛНИТЕ КОМАНДУ pip3 install telethon')
 from pytg.sender import Sender
 from pytg.receiver import Receiver
 from pytg.utils import coroutine
@@ -7,6 +9,12 @@ from collections import deque
 from time import time, sleep
 from getopt import getopt
 from datetime import datetime
+from threading import Timer
+from telethon import TelegramClient
+# from telethon.tl.types import InputUser, InputPeerUser, InputPeerChannel, InputPeerSelf, InputPeerEmpty
+from telethon.tl.types import *
+from telethon.tl.functions.messages import GetInlineBotResultsRequest, SendInlineBotResultRequest, GetDialogsRequest, GetBotCallbackAnswerRequest
+from telethon.tl.functions.contacts import SearchRequest, ResolveUsernameRequest
 import sys
 import os
 import re
@@ -17,6 +25,10 @@ import configparser
 
 pathname = os.path.dirname(sys.argv[0])
 fullpath = os.path.abspath(pathname)
+
+api_id = 67656
+api_hash = 'd6b2cb5d21032b39b53d9a51c2021934'
+client = None
 
 # username игрового бота
 bot_username = 'ChatWarsBot'
@@ -35,8 +47,13 @@ captcha_bot = 'ChatWarsCaptchaBot'
 stock_bot = 'PenguindrumStockBot'
 
 trade_bot = 'ChatWarsTradeBot'
+trade_bot_telethon = None
+
+market_telethon = None
 
 redstat_bot = 'RedStatBot'
+
+blueoysterbot = 'BlueOysterBot'
 
 # путь к сокет файлу
 socket_path = ''
@@ -56,19 +73,23 @@ lvl_up = 'lvl_off'
 # имя группы
 group_name = ''
 
-build_targed = '/build_hq'
+build_target = '/build_hq'
 
-#id ресурса для трейда
-resource_id = '0'
+# id ресурса для трейда
+resource_id_list = []
 
-baseconfig = configparser.SafeConfigParser()
-config = configparser.SafeConfigParser()
+config = configparser.ConfigParser()
 
 # user_id бота, используется для поиска конфига
 bot_user_id = ''
 
-opts, args = getopt(sys.argv[1:], 'a:o:s:h:p:g:b:l:n', ['admin=', 'order=', 'socket=', 'host=', 'port=',
-                                                          'gold=', 'buy=', 'lvlup=', 'group_name='])
+gold_to_left = 0
+
+# apikey для IFTTT
+apikey = None
+
+opts, args = getopt(sys.argv[1:], 'a:o:s:h:p:g:b:l:n:k:', ['admin=', 'order=', 'socket=', 'host=', 'port=',
+                                                          'gold=', 'buy=', 'lvlup=', 'group_name=', 'apikey='])
 
 for opt, arg in opts:
     if opt in ('-a', '--admin'):
@@ -89,7 +110,12 @@ for opt, arg in opts:
         lvl_up = arg
     elif opt in ('-n', '--group_name'):
         group_name = arg
+    elif opt in ('-k', '--apikey'):
+        apikey = str(arg)
 
+if apikey is not None:
+    import requests
+        
 orders = {
     'red': '🇮🇲',
     'black': '🇬🇵',
@@ -101,6 +127,7 @@ orders = {
     'lesnoi_fort': '🌲Лесной форт',
     'les': '🌲Лес',
     'gorni_fort': '⛰Горный форт',
+    'morskoi_fort': '⚓Морской форт',
     'gora': '⛰',
     'cover': '🛡 Защита',
     'attack': '⚔ Атака',
@@ -117,7 +144,10 @@ orders = {
     'lvl_def': '+1 🛡Защита',
     'lvl_atk': '+1 ⚔Атака',
     'lvl_off': 'Выключен',
-    'more':'🏝Побережье'
+    'more':'🏝Побережье',
+    'pet_play': '⚽Поиграть',
+    'pet_feed': '🍼Покормить',
+    'pet_wash': '🛁Почистить'
 }
 
 captcha_answers = {
@@ -145,7 +175,16 @@ builds = {
     'hq': '/build_hq',
     'gladiators': '/build_gladiators',
     'wall': '/build_wall',
-    'ambar': '/build_ambar'
+    'ambar': '/build_ambar',
+    'repair_stash': '/repair_stash',
+    'repair_sentries': '/repair_sentries',
+    'repair_monument': '/repair_monument',
+    'repair_warriors': '/repair_warriors',
+    'repair_teaparty': '/repair_teaparty',
+    'repair_hq': '/repair_hq',
+    'repair_gladiators': '/repair_gladiators',
+    'repair_wall': '/repair_wall',
+    'repair_ambar': '/repair_ambar'
 }
 
 flags = {
@@ -157,7 +196,32 @@ flags = {
     '🇰🇮': 'twilight',
     '🇲🇴': 'mint',
 }
-    
+
+pet_states = {
+    '😁': 'perfect',
+    '😃': 'good',
+    '😐': 'med',
+    '😢': 'bad'
+}
+
+pet_char_states = {
+    'отлично!': 5,
+    'хорошо': 4,
+    'удовлетворительно': 3,
+    'плохо': 2,
+    'очень плохо': 1
+}
+
+# Блядь, ну нахуя так репорты собирать то, а?
+oyster_report_castles = {
+    'red': '🇮🇲Красный замок',
+    'black': '🇬🇵Черный замок',
+    'white': '🇨🇾Белый замок',
+    'yellow': '🇻🇦Желтый замок',
+    'blue': '🇪🇺Синий замок',
+    'mint': '🇲🇴Мятный замок',
+    'twilight': '🇰🇮Сумрачный замок',
+}
 
 arena_cover = ['🛡головы', '🛡корпуса', '🛡ног']
 arena_attack = ['🗡в голову', '🗡по корпусу', '🗡по ногам']
@@ -165,22 +229,28 @@ arena_attack = ['🗡в голову', '🗡по корпусу', '🗡по но
 castle = orders['blue']
 # текущий приказ на атаку/защиту, по умолчанию всегда защита, трогать не нужно
 current_order = {'time': 0, 'order': castle}
+
+sender = Sender(sock=socket_path) if socket_path else Sender(host=host, port=port)
+action_list = deque([])
+log_list = deque([], maxlen=30)
+lt_arena = 0
+get_info_diff = 360
+hero_message_id = 0
+report_message_id = 0
+last_captcha_id = 0
+last_pet_play = 0
+
 # задаем получателя ответов бота: админ или группа
-if group_name =='':
+if group_name == '':
     pref = '@'
     msg_receiver = admin_username
 else:
     pref = ''
     msg_receiver = group_name
 
-sender = Sender(sock=socket_path) if socket_path else Sender(host=host,port=port)
-action_list = deque([])
-log_list = deque([], maxlen=30)
-lt_arena = 0
-get_info_diff = 360
-hero_message_id = 0
-last_captcha_id = 0
-gold_to_left = 0
+msg_receiver_telethon = None
+
+phone = '+{0}'.format(sender.get_self().phone)
 
 bot_enabled = True
 arena_enabled = True
@@ -193,23 +263,68 @@ auto_def_enabled = True
 donate_enabled = False
 quest_fight_enabled = True
 build_enabled = False
-build_target = '/build_hq'
 twinkstock_enabled = False
+trade_active = False
 report = False
 arenafight = re.search('Поединков сегодня (\d+) из (\d+)', 'Поединков сегодня 0 из 0')
 victory = 0
 gold = 0
 endurance = 0
 level = 0
+bot_name = ''
+class_available = False
+auth_request = False
+
+arena_change_enabled = False
+arena_item_id = 0
+non_arena_item_id = 0
 
 arena_running = False
 arena_delay = False
 arena_delay_day = -1
 tz = pytz.timezone('Europe/Moscow')
 
+
+def update_handler(update_object):
+    global market_telethon
+    global client
+    index = None
+    if type(update_object) is UpdatesTg \
+            and update_object.chats \
+            and bot_name != '' \
+            and not isinstance(update_object.updates[0].message, MessageService):
+        for i, update in enumerate(update_object.updates):
+            if update.message.message.find(bot_name) != -1:
+                index = i
+        if index is not None \
+                and update_object.chats[0].username == 'ChatWarsMarket' \
+                and update_object.updates[index].message.via_bot_id == 278525885 \
+                and update_object.updates[index].message.message.find(bot_name) != -1:
+            log('Трейд')
+            if update_object.updates[0].message.reply_markup is None:
+                log('Нет разметки кнопок')
+            else:
+                answer = client(GetBotCallbackAnswerRequest(
+                    InputPeerChannel(market_telethon.id, market_telethon.access_hash),
+                    update_object.updates[0].message.id,
+                    data=update_object.updates[0].message.reply_markup.rows[0].buttons[0].data
+                ))
+                if answer.message == 'Обмен произведен!':
+                    log('Приняли трейд')
+
+
 @coroutine
 def work_with_message(receiver):
     global bot_user_id
+    global client
+    global api_id
+    global api_hash
+    global phone
+    global auth_request
+    global trade_bot_telethon
+    global msg_receiver_telethon
+    global admin_username
+    global market_telethon
     while True:
         msg = (yield)
         try:
@@ -217,7 +332,9 @@ def work_with_message(receiver):
                 if bot_user_id == '' and msg['sender']['username'] == bot_username:
                     bot_user_id = msg['receiver']['peer_id']
                     log('user_id найден: {0}'.format(bot_user_id))
+                    client = TelegramClient(str(bot_user_id), api_id, api_hash)
                     config.read(fullpath + '/bot_cfg/' + str(bot_user_id) + '.cfg')
+
                     if config.has_section(str(bot_user_id)):
                         log('Конфиг найден')
                         read_config()
@@ -226,10 +343,66 @@ def work_with_message(receiver):
                         log('Конфиг не найден')
                         write_config()
                         log('Новый конфиг создан')
+
+                    client.connect()
+                    client.add_update_handler(update_handler)
+
+                    if not client.is_user_authorized():
+                        client.send_code_request(phone)
+                        log('Отправляем запрос на логин телетона')
+                        auth_request = True
+                    else:
+                        log('Телетон залогинен')
+
+                    trade_bot_telethon = client(SearchRequest(
+                        'ChatWarsTradeBot',
+                        1
+                    )).users[0]
+                    market_telethon = client(ResolveUsernameRequest(
+                        'ChatWarsMarket'
+                    )).chats[0]
+
+                    if group_name == '':
+                        search_res = client(SearchRequest(
+                            admin_username,
+                            1
+                        ))
+                        msg_receiver_telethon = InputPeerUser(search_res.users[0].id, search_res.users[0].access_hash)
+                    else:
+                        last_date = None
+                        chunk_size = 30
+                        while True:
+                            result = client(GetDialogsRequest(
+                                offset_date=last_date,
+                                offset_id=0,
+                                offset_peer=InputPeerEmpty(),
+                                limit=chunk_size
+                            ))
+                            last_date = min(msg.date for msg in result.messages)
+                            for chat in result.chats:
+                                if chat.title == 'Tvink_Inc.':
+                                    msg_receiver_telethon = InputPeerChannel(chat.id, chat.access_hash)
+                                    break
+                            else:
+                                if not result.dialogs:
+                                    break
+                                continue
+                            break
+
+                    action_list.append(orders['hero'])
+
                 # Проверяем наличие юзернейма, чтобы не вываливался Exception
                 if 'username' in msg['sender']:
                     parse_text(msg['text'], msg['sender']['username'], msg['id'])
+                if msg['sender']['peer_id'] == 777000:
+                    if 'Your login code:' in msg['text'] and auth_request:
+                        client.sign_in(phone, re.search('Your login code: ([0-9]+)', msg['text']).group(1))
+                        auth_request = False
+                        log('Телетон залогинен')
+
         except Exception as err:
+            if apikey is not None:
+                ifttt("bot_error", "coroutine", err)
             log('Ошибка coroutine: {0}'.format(err))
 
             
@@ -240,13 +413,13 @@ def queue_worker():
     global arena_delay_day
     global tz
     lt_info = 0
-    # гребаная магия
+    # Бот не пишет незнакомым юзерам, пока не поищет их
     print(sender.contacts_search(bot_username))
     print(sender.contacts_search(captcha_bot))
     print(sender.contacts_search(stock_bot))
     print(sender.contacts_search(trade_bot))
-    if castle_name == 'red':
-        print(sender.contacts_search(redstat_bot))
+    print(sender.contacts_search(redstat_bot))
+    print(sender.contacts_search(blueoysterbot))
     sleep(3)
     while True:
         try:
@@ -269,7 +442,10 @@ def queue_worker():
             sleep_time = random.randint(2, 5)
             sleep(sleep_time)
         except Exception as err:
+            if apikey is not None:
+                ifttt("bot_error", "очереди", err)
             log('Ошибка очереди: {0}'.format(err))
+
 
 def read_config():
     global config
@@ -287,20 +463,26 @@ def read_config():
     global quest_fight_enabled
     global build_enabled
     global build_target
+    global arena_change_enabled
+    global arena_item_id
+    global non_arena_item_id
     section=str(bot_user_id)
-    bot_enabled=config.getboolean(section, 'bot_enabled')
-    arena_enabled=config.getboolean(section, 'arena_enabled')
-    les_enabled=config.getboolean(section, 'les_enabled')
-    peshera_enabled=config.getboolean(section, 'peshera_enabled')
-    more_enabled=config.getboolean(section, 'more_enabled')
-    corovan_enabled=config.getboolean(section, 'corovan_enabled')
-    auto_def_enabled=config.getboolean(section, 'auto_def_enabled')
-    donate_enabled=config.getboolean(section, 'donate_enabled')
-    donate_buying=config.getboolean(section, 'donate_buying')
-    lvl_up=config.get(section, 'lvl_up')
-    quest_fight_enabled=config.getboolean(section, 'quest_fight_enabled')
-    build_enabled=config.getboolean(section, 'build_enabled')
-    build_target=config.get(section, 'build_target')
+    bot_enabled          = config.getboolean(section, 'bot_enabled')          if config.has_option(section, 'bot_enabled')          else bot_enabled
+    arena_enabled        = config.getboolean(section, 'arena_enabled')        if config.has_option(section, 'arena_enabled')        else arena_enabled
+    les_enabled          = config.getboolean(section, 'les_enabled')          if config.has_option(section, 'les_enabled')          else les_enabled
+    peshera_enabled      = config.getboolean(section, 'peshera_enabled')      if config.has_option(section, 'peshera_enabled')      else peshera_enabled
+    more_enabled         = config.getboolean(section, 'more_enabled')         if config.has_option(section, 'more_enabled')         else more_enabled
+    corovan_enabled      = config.getboolean(section, 'corovan_enabled')      if config.has_option(section, 'corovan_enabled')      else corovan_enabled
+    auto_def_enabled     = config.getboolean(section, 'auto_def_enabled')     if config.has_option(section, 'auto_def_enabled')     else auto_def_enabled
+    donate_enabled       = config.getboolean(section, 'donate_enabled')       if config.has_option(section, 'donate_enabled')       else donate_enabled
+    donate_buying        = config.getboolean(section, 'donate_buying')        if config.has_option(section, 'donate_buying')        else donate_buying
+    lvl_up               = config.get       (section, 'lvl_up')               if config.has_option(section, 'lvl_up')               else lvl_up
+    quest_fight_enabled  = config.getboolean(section, 'quest_fight_enabled')  if config.has_option(section, 'quest_fight_enabled')  else quest_fight_enabled
+    build_enabled        = config.getboolean(section, 'build_enabled')        if config.has_option(section, 'build_enabled')        else build_enabled
+    build_target         = config.get       (section, 'build_target')         if config.has_option(section, 'build_target')         else build_target
+    arena_change_enabled = config.getboolean(section, 'arena_change_enabled') if config.has_option(section, 'arena_change_enabled') else arena_change_enabled
+    arena_item_id        = config.get       (section, 'arena_item_id')        if config.has_option(section, 'arena_item_id')        else arena_item_id
+    non_arena_item_id    = config.get       (section, 'non_arena_item_id')    if config.has_option(section, 'non_arena_item_id')    else non_arena_item_id
 
 def write_config():
     global config
@@ -318,12 +500,16 @@ def write_config():
     global quest_fight_enabled
     global build_enabled
     global build_target
+    global arena_change_enabled
     section=str(bot_user_id)
     if config.has_section(section):
         config.remove_section(section)
     config.add_section(section)
     config.set(section, 'bot_enabled', str(bot_enabled))
     config.set(section, 'arena_enabled', str(arena_enabled))
+    config.set(section, 'arena_change_enabled', str(arena_change_enabled))
+    config.set(section, 'arena_item_id', str(arena_item_id))
+    config.set(section, 'non_arena_item_id', str(non_arena_item_id))
     config.set(section, 'les_enabled', str(les_enabled))
     config.set(section, 'peshera_enabled', str(peshera_enabled))
     config.set(section, 'more_enabled', str(more_enabled))
@@ -363,7 +549,7 @@ def parse_text(text, username, message_id):
     global build_enabled
     global build_target
     global twinkstock_enabled
-    global resource_id
+    global resource_id_list
     global report
     global gold
     global inv
@@ -378,6 +564,15 @@ def parse_text(text, username, message_id):
     global castle_name
     global castle
     global level
+    global class_available
+    global last_pet_play
+    global arena_change_enabled
+    global arena_item_id
+    global non_arena_item_id
+    global trade_active
+    global report_message_id
+    global oyster_report_castles
+    global bot_name
     if bot_enabled and username == bot_username:
         log('Получили сообщение от бота. Проверяем условия')
 
@@ -408,13 +603,46 @@ def parse_text(text, username, message_id):
             log("Отдыхаем денек от арены")
             arena_running = False
 
-        elif 'Ты вернулся со стройки:' in text and castle_name == 'red':
-            log("Построили, сообщаем легату")
-            fwd('@', 'RedStatBot', message_id)
+        elif 'Ты вернулся со стройки:' in text:
+            if castle_name == 'red':
+                log("Построили, сообщаем легату")
+                fwd('@', 'RedStatBot', message_id)
+            if castle_name == 'blue':
+                log("Построили, сообщаем ойстеру")
+                fwd('@', 'BlueOysterBot', message_id)
 
-        elif 'Твои результаты в бою:' in text and castle_name == 'red':
-            log("Повоевали, сообщаем легату")
-            fwd('@', 'RedStatBot', message_id)
+        elif 'Здание отремонтировано:' in text:
+            if castle_name == 'red':
+                log("Отремонтировали, сообщаем легату")
+                fwd('@', 'RedStatBot', message_id)
+            if castle_name == 'blue':
+                log("Отремонтировали, сообщаем ойстеру")
+                fwd('@', 'BlueOysterBot', message_id)
+
+        elif 'Твои результаты в бою:' in text:
+            if castle_name == 'red':
+                log("Повоевали, сообщаем легату")
+                fwd('@', 'RedStatBot', message_id)
+
+            if castle_name == 'blue':
+                log("Повоевали, сообщаем ойстеру")
+                fwd('@', 'BlueOysterBot', message_id)
+
+                def send_order_type():
+                    if current_order['order'] == castle:
+                        send_msg('@', 'BlueOysterBot', orders['cover'])
+                    else:
+                        send_msg('@', 'BlueOysterBot', orders['attack'])
+
+                def send_order():
+                    send_msg('@', 'BlueOysterBot', oyster_report_castles[flags[current_order['order']]])
+
+                t = Timer(4, send_order_type())
+                t2 = Timer(8, send_order())
+                t.start()
+                t2.start()
+
+            report_message_id = message_id
 
         elif 'Закупка начинается. Отслеживание заказа:' in text:
             buytrade = re.search('обойдется примерно в ([0-9]+)💰', text).group(1)
@@ -444,8 +672,8 @@ def parse_text(text, username, message_id):
             gold -= 5
 
         elif 'Добро пожаловать на арену!' in text:
-            victory = re.search('Количество побед: ([0-9]+)', text).group(1)
-            arenafight = re.search('Поединков сегодня ([0-9]+) из ([0-9]+)', text)
+            victory = re.search('Количество побед: (\d+)', text).group(1)
+            arenafight = re.search('Поединков сегодня (\d+) из (\d+)', text)
             log('Поединков: {0} / {1}. Побед: {2}'.format(arenafight.group(1), arenafight.group(2), victory))
             if 'Даже драконы не могут драться так часто' in text:
                 arena_delay = True
@@ -456,6 +684,8 @@ def parse_text(text, username, message_id):
                 action_list.append('⬅️Назад')
             if arena_enabled and not arena_delay and gold >= 5 and not arena_running:
                 log('Включаем флаг - арена запущена')
+                if arena_change_enabled:
+                    action_list.append('/on_{0}'.format(arena_item_id))
                 arena_running = True
                 action_list.append('🔎Поиск соперника')
                 log('Топаем на арену')
@@ -466,28 +696,55 @@ def parse_text(text, username, message_id):
         elif corovan_enabled and text.find(' /go') != -1:
             action_list.append(orders['corovan'])
 
+        elif 'доволен.' in text:
+            log('Поиграли с питомцем')
+            last_pet_play = round(time())
+            
+        elif text.find('Запас еды:') != -1:
+            play_state = pet_char_states[re.search('⚽ (.+)', text).group(1)]
+            food_state = pet_char_states[re.search('🍼 (.+)', text).group(1)]
+            wash_state = pet_char_states[re.search('🛁 (.+)', text).group(1)]
+            food_rest = int(re.search('Запас еды: (\d+)', text).group(1))
+            log('⚽️{0} 🍼{1} 🛁{2} Запас еды {3}'.format(play_state, food_state, wash_state, food_rest))
+            if food_rest <= 2:
+                ifttt('pet_food', food_rest, None)
+            if play_state <= 4 and round(time())-last_pet_play >= 3600:
+                action_list.append(orders['pet_play'])
+            if food_state <= 3 and food_rest != 0:
+                action_list.append(orders['pet_feed'])
+            if wash_state <= 4:
+                action_list.append(orders['pet_wash'])
+        
         elif text.find('Битва семи замков через') != -1:
             if castle_name is None:
-                castle_name = flags[re.search('(.{2}).+, .+ замка', text).group(1)]
+                castle_name = flags[re.search('(.{2}).*, .+ замка', text).group(1)]
                 log('Замок: '+castle_name)
                 castle = orders[castle_name]
+                bot_name = re.search('.{4}(.*), .+ замка', text).group(1)
+            class_available = bool(re.search('Определись со специализацией', text))
             hero_message_id = message_id
             endurance = int(re.search('Выносливость: (\d+)', text).group(1))
             endurancetop = int(re.search('Выносливость: (\d+)/(\d+)', text).group(2))
             gold = int(re.search('💰(-?[0-9]+)', text).group(1))
             inv = re.search('🎒Рюкзак: ([0-9]+)/([0-9]+)', text)
             level = int(re.search('🏅Уровень: (\d+)', text).group(1))
-            log('Уровень: {0}, золото: {1}, выносливость: {2} / {3}, Рюкзак: {4} / {5}'.format(level, gold, endurance, endurancetop,
-                                                                                 inv.group(1), inv.group(2)))
-            m = re.search('Битва семи замков через(?: ([0-9]+)ч){0,1}(?: ([0-9]+)){0,1} минут', text)
+            log('Уровень: {0}, золото: {1}, выносливость: {2} / {3}, Рюкзак: {4} / {5}'.format(level, gold, endurance, endurancetop, inv.group(1), inv.group(2)))
+            pet_state = 'no_pet'
+            if re.search('Помощник:', text) is not None:
+                # жевотне обнаружено
+                pet_state = pet_states[re.search('Помощник:\n.+\(.+\) (.+) /pet', text).group(1)]
+            m = re.search('Битва семи замков через (?:(?:(\d+)ч)? ?(?:(\d+) минут)?|несколько секунд)', text)
             if not m.group(1):
                 if m.group(2) and int(m.group(2)) <= 29:
                     report = True
                     state = re.search('Состояние:\n(.*)', text).group(1)
                     if auto_def_enabled and time() - current_order['time'] > 1800 and 'Отдых' in state:
                         if castle_name == 'red':
-                            fwd('@', 'RedStatBot', hero_message_id)
+                            fwd('@', redstat_bot, hero_message_id)
                             log("отправляем профиль легату")
+                        elif castle_name == 'blue':
+                            fwd('@', blueoysterbot, hero_message_id)
+                            log("отправляем профиль ойстеру")
                         if donate_enabled:
                             if int(inv.group(1)) == int(inv.group(2)):
                                 log('Полный рюкзак - Донат в лавку отключен')
@@ -515,7 +772,7 @@ def parse_text(text, username, message_id):
                     # если битва через несколько секунд
                     report = True
                     return
-            time_to_war = int(m.group(1)) * 60 + int(m.group(2))
+            time_to_war = int(m.group(1) if m.group(1) else 0) * 60 + int(m.group(2) if m.group(2) else 0)
             log('Времени достаточно. До боя осталось {0} минут'.format(time_to_war))
             if report:
                 action_list.append('/report')
@@ -531,7 +788,7 @@ def parse_text(text, username, message_id):
                     curhour = datetime.now(tz).hour
                     if not arena_enabled or arena_delay or curhour > 23 or curhour < 8:
                         log('на арену тоже не нужно')
-                        if int(endurancetop) - int(endurance) >= 4:
+                        if int(endurancetop) - int(endurance) >= 5:
                             # минут за 35-45 до битвы имеет смысл выйти из спячки
                             sleeping = time_to_war * 60 - 60 * random.randint(35, 45)
                             log('выносливости мало, можно и подремать до боя {0} минут'.format(int(sleeping / 60)))
@@ -546,7 +803,12 @@ def parse_text(text, username, message_id):
 
                 if text.find('🛌Отдых') != -1 and arena_running:
                     arena_running = False
-                if peshera_enabled and endurance >= 2:
+                    
+                if re.search('Помощник:', text) is not None and pet_state == 'med' or pet_state == 'bad': 
+                    log('Идем проверить питомца')
+                    action_list.append('/pet')
+                
+                elif peshera_enabled and endurance >= 2 and level >= 7:
                     if les_enabled:
                         action_list.append(orders['quests'])
                         action_list.append(random.choice([orders['peshera'], orders['les']]))
@@ -562,14 +824,14 @@ def parse_text(text, username, message_id):
                     action_list.append(orders['quests'])
                     action_list.append(orders['more'])
 
-                elif arena_enabled and not arena_delay and gold >= 5 and not arena_running:
+                elif arena_enabled and not arena_delay and gold >= 5 and not arena_running and level >= 5:
                     curhour = datetime.now(tz).hour
                     if 9 <= curhour <= 23:
                         action_list.append(orders['castle_menu'])
                         action_list.append('📯Арена')
                     else:
                         log('По часам не проходим на арену. Сейчас ' + str(curhour) + ' часов')
-                        if build_enabled:
+                        if build_enabled and level >= 10:
                             log('Пойдем строить')
                             if random.randint(0, 1) == 0:
                                 action_list.append(build_target)
@@ -579,7 +841,7 @@ def parse_text(text, username, message_id):
                                 action_list.append('🚧Стройка')
                                 action_list.append(build_target)
 
-                elif build_enabled:
+                elif build_enabled and level >= 10:
                     log('Пойдем строить')
                     if random.randint(0, 1) == 0:
                         action_list.append(build_target)
@@ -590,7 +852,7 @@ def parse_text(text, username, message_id):
                         action_list.append(build_target)
 
         elif arena_enabled and text.find('выбери точку атаки и точку защиты') != -1:
-            arena_running = True #на случай, если арена запущена руками
+            arena_running = True  # на случай, если арена запущена руками
             lt_arena = time()
             lt_info = time()
             get_info_diff = random.randint(400, 500)
@@ -610,9 +872,11 @@ def parse_text(text, username, message_id):
             get_info_diff = random.randint(60, 120)
             log('Выключаем флаг - арена закончилась')
             arena_running = False
+            if arena_change_enabled: 
+                action_list.append('/on_{0}'.format(non_arena_item_id))
 
         elif quest_fight_enabled and text.find('/fight') != -1:
-            c = re.search('(\/fight.*)', text).group(1)
+            c = re.search('\/fight.*', text).group(0)
             action_list.append(c)
             fwd(pref, msg_receiver, message_id)
 
@@ -625,23 +889,37 @@ def parse_text(text, username, message_id):
     elif username == 'ChatWarsTradeBot' and twinkstock_enabled:
         if text.find('Твой склад с материалами') != -1:
             stock_id = message_id
-            fwd('@','PenguindrumStockBot',stock_id)
+            fwd('@', 'PenguindrumStockBot', stock_id)
             twinkstock_enabled = False
             send_msg(pref, msg_receiver, 'Сток обновлен')
 
-    elif username == 'ChatWarsTradeBot' and resource_id!= '0':
-        if text.find('/add_'+resource_id) != -1:
-            count = re.search('/add_'+resource_id+'(\D+)(.*)', text).group(2)
-            send_msg('@',trade_bot,'/add_'+resource_id+' '+str(count))
-            log('Добавили '+str(count)+' шт. ресурса '+resource_id)
-            send_msg(pref, msg_receiver, 'Добавлено '+str(count)+' шт. ресурса '+resource_id)
-        else:
-            log('На складе нет ресурса '+resource_id)
-            send_msg(pref, msg_receiver, 'На складе нет ресурса '+resource_id)
-        resource_id='0'
+    elif username == 'ChatWarsTradeBot' and len(resource_id_list)!= 0 and trade_active == False:
+        log('добавляем ресурсы по списку..')
+        trade_active = True
+        for res_id in resource_id_list:
+            if re.search('\/add_'+res_id+' ', text):
+                count = re.search('/add_'+res_id+'\D+(.*)', text).group(1)
+                send_msg('@', trade_bot, '/add_'+res_id+' '+str(count))
+                log('Добавили '+str(count)+' шт. ресурса '+res_id)
+                send_msg(pref, msg_receiver, 'Добавлено '+str(count)+' шт. ресурса '+res_id)
+                sleep_time = random.randint(2, 5)
+                sleep(sleep_time)
+            else:
+                log('На складе нет ресурса '+res_id)
+                send_msg(pref, msg_receiver, 'На складе нет ресурса '+res_id)
+        resource_id_list = []
+        send_msg('@', trade_bot, '/done')
+        log('Предложение готово')
+        trade_active = False
+        sleep(2)
+        send_last_trade_offer()
 
     else:
-        if bot_enabled and order_enabled and username in order_usernames:
+        if quest_fight_enabled and text.find('/fight') != -1 and level >= 15:
+            c = re.search('\/fight.*', text).group(0)
+            action_list.append(c)
+    
+        if bot_enabled and order_enabled and (username in order_usernames or username == admin_username):
             if text.find(orders['red']) != -1:
                 update_order(orders['red'])
             elif text.find(orders['black']) != -1:
@@ -660,13 +938,10 @@ def parse_text(text, username, message_id):
                 update_order(orders['lesnoi_fort'])
             elif text.find('⛰') != -1:
                 update_order(orders['gorni_fort'])
+            elif text.find('⚓️') != -1:
+                update_order(orders['morskoi_fort'])
             elif text.find('🛡') != -1:
                 update_order(castle)
-
-	if bot_enabled and quest_fight_enabled and text.find('/fight') != -1:
-            c = re.search('(\/fight.*)', text).group(1)
-	    sleep(random.randint(2,5))
-            action_list.append(c)
 
         # send_msg(pref, admin_username, 'Получили команду ' + current_order['order'] + ' от ' + username)
         if username == admin_username:
@@ -694,6 +969,8 @@ def parse_text(text, username, message_id):
                     '#disable_quest_fight - Выключить битву во время квестов',
                     '#enable_buy - Включить донат в лавку вместо казны',
                     '#disable_buy - Вылючить донат в лавку вместо казны',
+                    '#set_arena_change *id предмета на арене* *id предмета вне арены* - Включить переодевание перед ареной и после нее (например рапира и кирка)',
+                    '#disable_arena_change - Выключить переодевание перед ареной и после нее',
                     "#lvl_atk - качать атаку",
                     "#lvl_def - качать защиту",
                     "#lvl_off - ничего не качать",
@@ -708,15 +985,21 @@ def parse_text(text, username, message_id):
                     '#ping - Дебаг, проверить жив ли бот',
                     '#enable_build - Включить постройки',
                     '#disable_build - Выключить постройки',
-                    '#build_target - указать цель постройки ({0})'.format(','.join(builds)),
+                    '#build_target - указать цель постройки/починки ({0})'.format(','.join(builds)),
                     '#stock - Обновить стоки',
-                    '#info - немного оперативной информации'
+                    '#info - Немного оперативной информации',
+                    '#detail - Почти вся информация о герое, только компактнее',
+                    '#report - Получить репорт с прошлой битвы',
+                    '#eval - Дебаг, выполнить запрос вручную'
                 ]))
 
             # отправка info
             elif text == '#info':
-                send_msg(pref, msg_receiver, '''🏅{0}, 💰{1}, 🔋{2}/{3}
-🤺{4}/{5}, 🌟{6}'''.format(level, gold, endurance, endurancetop, arenafight.group(1), arenafight.group(2), victory))
+                infotext = '🕯' if class_available else ''
+                infotext += '{0}{1}, 💰{2}, 🔋{3}/{4}'.format(castle, level, gold, endurance, endurancetop)
+                if arenafight.group(2) != '0':
+                    infotext += ', 🤺{0}/{1}, 🌟{2}'.format(arenafight.group(1), arenafight.group(2), victory)
+                send_msg(pref, msg_receiver, infotext)
 
             # Вкл/выкл бота
             elif text == '#enable_bot':
@@ -732,7 +1015,7 @@ def parse_text(text, username, message_id):
             elif text == '#stock':
                 if level >= 15:
                     twinkstock_enabled = True
-                    send_msg('@','ChatWarsTradeBot','/start')
+                    send_msg('@',trade_bot,'/start')
                 else:
                     send_msg(pref, msg_receiver, 'Я еще не дорос, у меня только '+str(level)+' уровень')
 
@@ -742,8 +1025,12 @@ def parse_text(text, username, message_id):
                 write_config()
                 lt_info = time()
                 get_info_diff = random.randint(400, 500)
-                send_msg(pref, msg_receiver, 'Арена успешно включена')
-                log('Арена успешно включена, скоро пойдем бить морды')
+                if level >= 5:
+                    send_msg(pref, msg_receiver, 'Арена успешно включена')
+                    log('Арена успешно включена, скоро пойдем бить морды')
+                else:
+                    send_msg(pref, msg_receiver, 'Арена успешно включена, но у меня только {0} уровень'.format(level))
+                    log('Арена успешно включена, скоро пойдем бить морды, но у меня только {0} уровень'.format(level))
             elif text == '#disable_arena':
                 arena_enabled = False
                 write_config()
@@ -826,7 +1113,19 @@ def parse_text(text, username, message_id):
                 donate_buying = False
                 write_config()
                 send_msg(pref, msg_receiver, 'Донат в лавку успешно выключен')
-
+            
+            # Вкл/выкл переодевание перед ареной и после нее
+            elif text.startswith('#set_arena_change'):
+                arena_change_enabled = True
+                arena_item_id = text.split(' ')[1]
+                non_arena_item_id = text.split(' ')[2]
+                write_config()
+                send_msg(pref, msg_receiver, 'Переодевание перед ареной и после нее успешно включено. На арене - {0}, вне арены - {1}'.format(arena_item_id, non_arena_item_id))
+            elif text == '#disable_arena_change':
+                arena_change_enabled = False
+                write_config()
+                send_msg(pref, msg_receiver, 'Переодевание перед ареной и после нее успешно выключено')
+            
             # Вкл/выкл битву по время квеста
             elif text == '#enable_quest_fight':
                 quest_fight_enabled = True
@@ -877,6 +1176,29 @@ def parse_text(text, username, message_id):
                     send_msg(pref, msg_receiver, 'Информация о герое пока еще недоступна')
                 else:
                     fwd(pref, msg_receiver, hero_message_id)
+            
+            # Информация о герое
+            elif text == '#report':
+                if report_message_id == 0:
+                    send_msg(pref, msg_receiver, 'Информация о репорте пока еще недоступна')
+                else:
+                    fwd(pref, msg_receiver, report_message_id)
+            
+            elif text == '#detail':
+                if hero_message_id == 0:
+                    send_msg(pref, msg_receiver, 'Информация о герое пока еще недоступна')
+                else:
+                    heroText  = sender.message_get(hero_message_id).text
+                    template  = '{0}{1} {2}, 🏅{3}, ⚔️{4} 🛡{5}\n🔥{6}/{7} 🔋{8}/{9} 💰{10}\n🎽{11}'
+                    heroName  = re.search('.{2}(.*), (\w+) \w+ замка', heroText).group(1)
+                    heroClass = re.search('.{2}(.*), (\w+) \w+ замка', heroText).group(2)
+                    heroAtk   = re.search('⚔Атака: (\d+) 🛡Защита: (\d+)', heroText).group(1)
+                    heroDef   = re.search('⚔Атака: (\d+) 🛡Защита: (\d+)', heroText).group(2)
+                    heroExpNow  = re.search('🔥Опыт: (\d+)/(\d+)', heroText).group(1)
+                    heroExpNext = re.search('🔥Опыт: (\d+)/(\d+)', heroText).group(2)
+                    heroEquip = re.sub('\+', '', re.search('🎽Экипировка (.+)', heroText).group(1))
+                    # heroState = re.search('Состояние:\n(.+)', heroText).group(1)
+                    send_msg(pref, msg_receiver, template.format(castle, heroClass, heroName, level, heroAtk, heroDef, heroExpNow, heroExpNext, endurance, endurancetop, gold, heroEquip))
 
             # Получить лог
             elif text == '#log':
@@ -942,25 +1264,25 @@ def parse_text(text, username, message_id):
 
             elif text.startswith('#add'):
                 if level >= 15:
-                    resource_id = text.split(' ')[1]
+                    resource_id_list = text.split(' ')[1].split(',')
                     send_msg('@', trade_bot, '/start')
                 else:
                     send_msg(pref, msg_receiver, 'Я еще не дорос, у меня только '+str(level)+' уровень')
-
-            elif text == '#done':
-                if level >= 15:
-                    send_msg('@', trade_bot, '/done')
-                    send_msg(pref, msg_receiver, 'Предложение готово!')
-                else:
-                    send_msg(pref, msg_receiver, 'Я еще не дорос, у меня только '+str(level)+' уровень')
-
                     
+            elif text.startswith('#eval'):
+                eval(re.search('#eval (.+)', text).group(1))
+
+
 def send_msg(pref, to, message):
     sender.send_msg(pref + to, message)
 
 
 def fwd(pref, to, message_id):
     sender.fwd(pref + to, message_id)
+
+
+def ifttt(event, val2, val3):
+    requests.get("https://maker.ifttt.com/trigger/"+event+"/with/key/"+apikey, params={'value1': str(port), 'value2': val2, 'value3': val3})
 
 
 def update_order(order):
@@ -977,6 +1299,25 @@ def log(text):
     message = '{0:%Y-%m-%d+ %H:%M:%S}'.format(datetime.now()) + ' ' + text
     print(message)
     log_list.append(message)
+
+
+def send_last_trade_offer():
+    global client
+    global msg_receiver_telethon
+    global trade_bot_telethon
+    query_results = client(GetInlineBotResultsRequest(
+        InputUser(trade_bot_telethon.id, trade_bot_telethon.access_hash),
+        InputPeerSelf(),
+        '',
+        ''
+    ))
+
+    client(SendInlineBotResultRequest(
+        msg_receiver_telethon,
+        query_results.query_id,
+        query_results.results[0].id
+    ))
+    log('Предложение отправлено')
 
 
 if __name__ == '__main__':
