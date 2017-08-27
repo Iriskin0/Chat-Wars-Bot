@@ -11,6 +11,7 @@ from getopt import getopt
 from datetime import datetime
 from threading import Timer
 from telethon import TelegramClient
+from telethon.errors import SessionPasswordNeededError
 # from telethon.tl.types import InputUser, InputPeerUser, InputPeerChannel, InputPeerSelf, InputPeerEmpty
 from telethon.tl.types import *
 from telethon.tl.functions.messages import GetInlineBotResultsRequest, SendInlineBotResultRequest, GetDialogsRequest, GetBotCallbackAnswerRequest
@@ -90,8 +91,11 @@ gold_to_left = 0
 # apikey для IFTTT
 apikey = None
 
-opts, args = getopt(sys.argv[1:], 'a:o:s:h:p:g:b:l:n:k:', ['admin=', 'order=', 'socket=', 'host=', 'port=',
-                                                          'gold=', 'buy=', 'lvlup=', 'group_name=', 'apikey='])
+#пароль для двухшаговой авторизации
+telethon_pw = ''
+
+opts, args = getopt(sys.argv[1:], 'a:o:s:h:p:g:b:l:n:k:w', ['admin=', 'order=', 'socket=', 'host=', 'port=',
+                                                          'gold=', 'buy=', 'lvlup=', 'group_name=', 'apikey=', '2sp='])
 
 for opt, arg in opts:
     if opt in ('-a', '--admin'):
@@ -114,6 +118,8 @@ for opt, arg in opts:
         group_name = arg
     elif opt in ('-k', '--apikey'):
         apikey = str(arg)
+    elif opt in ('-w', '--2sp'):
+        telethon_pw = str(arg)
 
 if apikey is not None:
     import requests
@@ -327,6 +333,7 @@ def work_with_message(receiver):
     global msg_receiver_telethon
     global admin_username
     global market_telethon
+    lobal telethon_pw
     while True:
         msg = (yield)
         try:
@@ -402,6 +409,10 @@ def work_with_message(receiver):
                         auth_request = False
                         log('Телетон залогинен')
 
+        except SessionPasswordNeededError:
+            client.sign_in(password=telethon_pw)
+            log ('Two-step verification done, pass={0}'.format(telethon_pw))
+            
         except Exception as err:
             if apikey is not None:
                 ifttt("bot_error", "coroutine", err)
