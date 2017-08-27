@@ -1,5 +1,3 @@
 .idea/
 .vscode/
 *.bak
-test.py
-*.session
