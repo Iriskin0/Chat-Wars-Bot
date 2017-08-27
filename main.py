@@ -45,6 +45,7 @@ castle_name = None
 captcha_bot = 'ChatWarsCaptchaBot'
 
 stock_bot = 'PenguindrumStockBot'
+stock2_bot = 'ChatWarsStock_bot'
 
 trade_bot = 'ChatWarsTradeBot'
 trade_bot_telethon = None
@@ -52,6 +53,7 @@ trade_bot_telethon = None
 market_telethon = None
 
 redstat_bot = 'RedStatBot'
+redstat2_bot = 'CWRedCastleBot'
 
 blueoysterbot = 'BlueOysterBot'
 
@@ -417,8 +419,10 @@ def queue_worker():
     print(sender.contacts_search(bot_username))
     print(sender.contacts_search(captcha_bot))
     print(sender.contacts_search(stock_bot))
+    print(sender.contacts_search(stock2_bot))
     print(sender.contacts_search(trade_bot))
     print(sender.contacts_search(redstat_bot))
+    print(sender.contacts_search(redstat2_bot))
     print(sender.contacts_search(blueoysterbot))
     sleep(3)
     while True:
@@ -606,7 +610,8 @@ def parse_text(text, username, message_id):
         elif 'Ты вернулся со стройки:' in text:
             if castle_name == 'red':
                 log("Построили, сообщаем легату")
-                fwd('@', 'RedStatBot', message_id)
+                fwd('@', redstat_bot, message_id)
+                fwd('@', redstat2_bot, message_id)
             if castle_name == 'blue':
                 log("Построили, сообщаем ойстеру")
                 fwd('@', 'BlueOysterBot', message_id)
@@ -614,7 +619,8 @@ def parse_text(text, username, message_id):
         elif 'Здание отремонтировано:' in text:
             if castle_name == 'red':
                 log("Отремонтировали, сообщаем легату")
-                fwd('@', 'RedStatBot', message_id)
+                fwd('@', redstat_bot, message_id)
+                fwd('@', redstat2_bot, message_id)
             if castle_name == 'blue':
                 log("Отремонтировали, сообщаем ойстеру")
                 fwd('@', 'BlueOysterBot', message_id)
@@ -622,7 +628,8 @@ def parse_text(text, username, message_id):
         elif 'Твои результаты в бою:' in text:
             if castle_name == 'red':
                 log("Повоевали, сообщаем легату")
-                fwd('@', 'RedStatBot', message_id)
+                fwd('@', redstat_bot, message_id)
+                fwd('@', redstat2_bot, message_id)
 
             if castle_name == 'blue':
                 log("Повоевали, сообщаем ойстеру")
@@ -889,7 +896,8 @@ def parse_text(text, username, message_id):
     elif username == 'ChatWarsTradeBot' and twinkstock_enabled:
         if text.find('Твой склад с материалами') != -1:
             stock_id = message_id
-            fwd('@', 'PenguindrumStockBot', stock_id)
+            fwd('@', stock_bot, stock_id)
+            fwd('@', stock2_bot, stock_id)
             twinkstock_enabled = False
             send_msg(pref, msg_receiver, 'Сток обновлен')
 
