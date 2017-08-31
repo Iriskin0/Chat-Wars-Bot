@@ -253,6 +253,8 @@ auto_def_enabled = True
 donate_enabled = False
 quest_fight_enabled = True
 build_enabled = False
+firststock_enabled = True
+secondstock_enabled = False
 twinkstock_enabled = False
 trade_active = False
 report = False
@@ -368,6 +370,8 @@ def read_config():
     global arena_change_enabled
     global arena_item_id
     global non_arena_item_id
+    global firststock_enabled
+    global secondstock_enabled
     section=str(bot_user_id)
     bot_enabled          = config.getboolean(section, 'bot_enabled')          if config.has_option(section, 'bot_enabled')          else bot_enabled
     arena_enabled        = config.getboolean(section, 'arena_enabled')        if config.has_option(section, 'arena_enabled')        else arena_enabled
@@ -385,6 +389,8 @@ def read_config():
     arena_change_enabled = config.getboolean(section, 'arena_change_enabled') if config.has_option(section, 'arena_change_enabled') else arena_change_enabled
     arena_item_id        = config.get       (section, 'arena_item_id')        if config.has_option(section, 'arena_item_id')        else arena_item_id
     non_arena_item_id    = config.get       (section, 'non_arena_item_id')    if config.has_option(section, 'non_arena_item_id')    else non_arena_item_id
+    firststock_enabled   = config.getboolean(section, 'firststock_enabled')   if config.has_option(section, 'firststock_enabled')   else firststock_enabled
+    secondstock_enabled  = config.getboolean(section, 'secondstock_enabled')  if config.has_option(section, 'secondstock_enabled')  else secondstock_enabled
 
 def write_config():
     global config
@@ -403,6 +409,8 @@ def write_config():
     global build_enabled
     global build_target
     global arena_change_enabled
+    global firststock_enabled
+    global secondstock_enabled
     section=str(bot_user_id)
     if config.has_section(section):
         config.remove_section(section)
@@ -423,6 +431,8 @@ def write_config():
     config.set(section, 'quest_fight_enabled', str(quest_fight_enabled))
     config.set(section, 'build_enabled', str(build_enabled))
     config.set(section, 'build_target', str(build_target))
+    config.set(section, 'firststock_enabled', str(firststock_enabled))
+    config.set(section, 'secondstock_enabled', str(secondstock_enabled))
     with open(fullpath + '/bot_cfg/' + str(bot_user_id) + '.cfg','w+') as configfile:
         config.write(configfile)
 
@@ -474,6 +484,8 @@ def parse_text(text, username, message_id):
     global trade_active
     global report_message_id
     global oyster_report_castles
+    global firststock_enabled
+    global secondstock_enabled
     if bot_enabled and username == bot_username:
         log('Получили сообщение от бота. Проверяем условия')
 
@@ -797,11 +809,13 @@ def parse_text(text, username, message_id):
             action_list.append(text)
             bot_enabled = True
 
-    elif username == 'ChatWarsTradeBot' and twinkstock_enabled:
+    elif username == 'ChatWarsTradeBot' and twinkstock_enabled and (firststock_enabled or secondstock_enabled):
         if text.find('Твой склад с материалами') != -1:
             stock_id = message_id
-            fwd('@', stock_bot, stock_id)
-            fwd('@', stock2_bot, stock_id)
+            if firststock_enabled:
+                fwd('@', stock_bot, stock_id)
+            if secondstock_enabled:
+                fwd('@', stock2_bot, stock_id)
             twinkstock_enabled = False
             send_msg(pref, msg_receiver, 'Сток обновлен')
 
@@ -901,6 +915,11 @@ def parse_text(text, username, message_id):
                     '#info - Немного оперативной информации',
                     '#detail - Почти вся информация о герое, только компактнее',
                     '#report - Получить репорт с прошлой битвы',
+                    '#enable_first_stock - Включить отправку стока в первого стокбота(Penguindum)',
+                    '#disable_first_stock - Выключить отправку стока в первого стокбота(Penguindum)',
+                    '#enable_second_stock - Включить отправку стока во второго стокбота(Капибара-банкир)',
+                    '#disable_second_stock - Выключить отправку стока во второго стокбота(Капибара-банкир)',
+                    '#report - Получить репорт с прошлой битвы',
                     '#eval - Дебаг, выполнить запрос вручную'
                 ]))
 
@@ -925,8 +944,11 @@ def parse_text(text, username, message_id):
             # отправка стока
             elif text == '#stock':
                 if level >= 15:
-                    twinkstock_enabled = True
-                    send_msg('@',trade_bot,'/start')
+                    if firststock_enabled or secondstock_enabled:
+                        twinkstock_enabled = True
+                        send_msg('@',trade_bot,'/start')
+                    else:
+                        send_msg(pref, msg_receiver, 'Ты просишь меня обновить сток. Но ты даже не включил ни одного стокбота.')
                 else:
                     send_msg(pref, msg_receiver, 'Я еще не дорос, у меня только '+str(level)+' уровень')
 
@@ -1179,7 +1201,27 @@ def parse_text(text, username, message_id):
                     send_msg('@', trade_bot, '/start')
                 else:
                     send_msg(pref, msg_receiver, 'Я еще не дорос, у меня только '+str(level)+' уровень')
-                    
+
+            # Вкл/выкл первого стокобота
+            elif text == '#enable_first_stock':
+                firststock_enabled = True
+                write_config()
+                send_msg(pref, msg_receiver, 'Первый сток успешно включён')
+            elif text == '#disable_first_stock':
+                firststock_enabled = False
+                write_config()
+                send_msg(pref, msg_receiver, 'Первый сток успешно выключен')
+
+            # Вкл/выкл второго стокобота
+            elif text == '#enable_second_stock':
+                secondstock_enabled = True
+                write_config()
+                send_msg(pref, msg_receiver, 'Второй сток успешно включён')
+            elif text == '#disable_second_stock':
+                secondstock_enabled = False
+                write_config()
+                send_msg(pref, msg_receiver, 'Второй сток успешно выключен')
+
             elif text.startswith('#eval'):
                 eval(re.search('#eval (.+)', text).group(1))
 
