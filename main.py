@@ -11,6 +11,7 @@ from datetime import datetime
 from threading import Timer
 import sys
 import os
+import glob
 import re
 import _thread
 import random
@@ -73,6 +74,9 @@ config = configparser.ConfigParser()
 bot_user_id = ''
 
 gold_to_left = 0
+
+#Путь, по которому создаются файлы боёв
+fight_path = ''
 
 # apikey для IFTTT
 apikey = None
@@ -325,7 +329,14 @@ def queue_worker():
                 if bot_enabled:
                     send_msg('@', bot_username, orders['hero'])
                 continue
-
+            if fight_path != '' and castle_name != None:
+                os.chdir(fight_path)
+                for file_name in glob.glob(castle_name+"*"):
+                    if file_name[-4:] != port:
+                        f = open(file_name,'r')
+                        action_list.append(f.readline())
+                        f.close
+                        os.remove(file_name)
             if len(action_list):
                 log('Отправляем ' + action_list[0])
                 send_msg('@', bot_username, action_list.popleft())
@@ -355,6 +366,7 @@ def read_config():
     global arena_change_enabled
     global arena_item_id
     global non_arena_item_id
+    global fight_path
     section=str(bot_user_id)
     bot_enabled          = config.getboolean(section, 'bot_enabled')          if config.has_option(section, 'bot_enabled')          else bot_enabled
     arena_enabled        = config.getboolean(section, 'arena_enabled')        if config.has_option(section, 'arena_enabled')        else arena_enabled
@@ -372,6 +384,7 @@ def read_config():
     arena_change_enabled = config.getboolean(section, 'arena_change_enabled') if config.has_option(section, 'arena_change_enabled') else arena_change_enabled
     arena_item_id        = config.get       (section, 'arena_item_id')        if config.has_option(section, 'arena_item_id')        else arena_item_id
     non_arena_item_id    = config.get       (section, 'non_arena_item_id')    if config.has_option(section, 'non_arena_item_id')    else non_arena_item_id
+    fight_path           = config.get       (section, 'fight_path')           if config.has_option(section, 'fight_path')           else fight_path
 
 def write_config():
     global config
@@ -390,6 +403,7 @@ def write_config():
     global build_enabled
     global build_target
     global arena_change_enabled
+    global fight_path
     section=str(bot_user_id)
     if config.has_section(section):
         config.remove_section(section)
@@ -410,6 +424,7 @@ def write_config():
     config.set(section, 'quest_fight_enabled', str(quest_fight_enabled))
     config.set(section, 'build_enabled', str(build_enabled))
     config.set(section, 'build_target', str(build_target))
+    config.set(section, 'fight_path', str(fight_path))
     with open(fullpath + '/bot_cfg/' + str(bot_user_id) + '.cfg','w+') as configfile:
         config.write(configfile)
 
@@ -766,9 +781,17 @@ def parse_text(text, username, message_id):
                 action_list.append('/on_{0}'.format(non_arena_item_id))
 
         elif quest_fight_enabled and text.find('/fight') != -1:
-            c = re.search('\/fight.*', text).group(0)
-            action_list.append(c)
-            fwd(pref, msg_receiver, message_id)
+            if fight_path != '':
+                c = re.search('(\/fight.*)', text).group(1)
+                action_list.append(c)
+                file_name = fight_path+castle_name+str(port)
+                f = open(file_name, 'w')
+                f.write(c)
+                f.close()
+            else:
+                c = re.search('\/fight.*', text).group(0)
+                action_list.append(c)
+                fwd(pref, msg_receiver, message_id)
 
     elif username == 'ChatWarsCaptchaBot':
         if len(text) <= 4 and text in captcha_answers.values():
