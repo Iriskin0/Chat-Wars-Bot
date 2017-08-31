@@ -331,7 +331,7 @@ def queue_worker():
                 if bot_enabled:
                     send_msg('@', bot_username, orders['hero'])
                 continue
-            if fight_path != '' and castle_name != None:
+            if fight_path != '' and castle_name is not None:
                 os.chdir(fight_path)
                 for file_name in glob.glob(castle_name+"*"):
                     if file_name[-4:] != port:
