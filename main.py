@@ -11,6 +11,7 @@ from datetime import datetime
 from threading import Timer
 import sys
 import os
+import glob
 import re
 import _thread
 import random
@@ -74,11 +75,14 @@ bot_user_id = ''
 
 gold_to_left = 0
 
+#Путь, по которому создаются файлы боёв
+fight_path = ''
+
 # apikey для IFTTT
 apikey = None
 
-opts, args = getopt(sys.argv[1:], 'a:o:s:h:p:g:b:l:n:k:', ['admin=', 'order=', 'socket=', 'host=', 'port=',
-                                                          'gold=', 'buy=', 'lvlup=', 'group_name=', 'apikey='])
+opts, args = getopt(sys.argv[1:], 'a:o:s:h:p:g:b:l:n:k:f', ['admin=', 'order=', 'socket=', 'host=', 'port=',
+                                                          'gold=', 'buy=', 'lvlup=', 'group_name=', 'apikey=', 'fpath='])
 
 for opt, arg in opts:
     if opt in ('-a', '--admin'):
@@ -101,6 +105,8 @@ for opt, arg in opts:
         group_name = arg
     elif opt in ('-k', '--apikey'):
         apikey = str(arg)
+    elif opt in ('-f', '--fpath'):
+        fight_path = str(arg)
 
 if apikey is not None:
     import requests
@@ -325,7 +331,14 @@ def queue_worker():
                 if bot_enabled:
                     send_msg('@', bot_username, orders['hero'])
                 continue
-
+            if fight_path != '' and castle_name is not None:
+                os.chdir(fight_path)
+                for file_name in glob.glob(castle_name+"*"):
+                    if file_name[-4:] != port:
+                        f = open(file_name,'r')
+                        action_list.append(f.readline())
+                        f.close
+                        os.remove(file_name)
             if len(action_list):
                 log('Отправляем ' + action_list[0])
                 send_msg('@', bot_username, action_list.popleft())
@@ -766,9 +779,17 @@ def parse_text(text, username, message_id):
                 action_list.append('/on_{0}'.format(non_arena_item_id))
 
         elif quest_fight_enabled and text.find('/fight') != -1:
-            c = re.search('\/fight.*', text).group(0)
-            action_list.append(c)
-            fwd(pref, msg_receiver, message_id)
+            if fight_path != '':
+                c = re.search('(\/fight.*)', text).group(1)
+                action_list.append(c)
+                file_name = fight_path+castle_name+str(port)
+                f = open(file_name, 'w')
+                f.write(c)
+                f.close()
+            else:
+                c = re.search('\/fight.*', text).group(0)
+                action_list.append(c)
+                fwd(pref, msg_receiver, message_id)
 
     elif username == 'ChatWarsCaptchaBot':
         if len(text) <= 4 and text in captcha_answers.values():
