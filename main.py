@@ -81,7 +81,7 @@ fight_path = ''
 # apikey для IFTTT
 apikey = None
 
-opts, args = getopt(sys.argv[1:], 'a:o:s:h:p:g:b:l:n:k:f', ['admin=', 'order=', 'socket=', 'host=', 'port=',
+opts, args = getopt(sys.argv[1:], 'a:o:s:h:p:g:b:l:n:k:f:', ['admin=', 'order=', 'socket=', 'host=', 'port=',
                                                           'gold=', 'buy=', 'lvlup=', 'group_name=', 'apikey=', 'fpath='])
 
 for opt, arg in opts:
@@ -486,6 +486,7 @@ def parse_text(text, username, message_id):
     global oyster_report_castles
     global firststock_enabled
     global secondstock_enabled
+
     if bot_enabled and username == bot_username:
         log('Получили сообщение от бота. Проверяем условия')
 
