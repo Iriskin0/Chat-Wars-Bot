@@ -81,8 +81,8 @@ fight_path = ''
 # apikey для IFTTT
 apikey = None
 
-opts, args = getopt(sys.argv[1:], 'a:o:s:h:p:g:b:l:n:k:', ['admin=', 'order=', 'socket=', 'host=', 'port=',
-                                                          'gold=', 'buy=', 'lvlup=', 'group_name=', 'apikey='])
+opts, args = getopt(sys.argv[1:], 'a:o:s:h:p:g:b:l:n:k:f', ['admin=', 'order=', 'socket=', 'host=', 'port=',
+                                                          'gold=', 'buy=', 'lvlup=', 'group_name=', 'apikey=', 'fpath='])
 
 for opt, arg in opts:
     if opt in ('-a', '--admin'):
@@ -105,6 +105,8 @@ for opt, arg in opts:
         group_name = arg
     elif opt in ('-k', '--apikey'):
         apikey = str(arg)
+    elif opt in ('-f', '--fpath'):
+        fight_path = str(arg)
 
 if apikey is not None:
     import requests
@@ -366,7 +368,6 @@ def read_config():
     global arena_change_enabled
     global arena_item_id
     global non_arena_item_id
-    global fight_path
     section=str(bot_user_id)
     bot_enabled          = config.getboolean(section, 'bot_enabled')          if config.has_option(section, 'bot_enabled')          else bot_enabled
     arena_enabled        = config.getboolean(section, 'arena_enabled')        if config.has_option(section, 'arena_enabled')        else arena_enabled
@@ -384,7 +385,6 @@ def read_config():
     arena_change_enabled = config.getboolean(section, 'arena_change_enabled') if config.has_option(section, 'arena_change_enabled') else arena_change_enabled
     arena_item_id        = config.get       (section, 'arena_item_id')        if config.has_option(section, 'arena_item_id')        else arena_item_id
     non_arena_item_id    = config.get       (section, 'non_arena_item_id')    if config.has_option(section, 'non_arena_item_id')    else non_arena_item_id
-    fight_path           = config.get       (section, 'fight_path')           if config.has_option(section, 'fight_path')           else fight_path
 
 def write_config():
     global config
@@ -403,7 +403,6 @@ def write_config():
     global build_enabled
     global build_target
     global arena_change_enabled
-    global fight_path
     section=str(bot_user_id)
     if config.has_section(section):
         config.remove_section(section)
@@ -424,7 +423,6 @@ def write_config():
     config.set(section, 'quest_fight_enabled', str(quest_fight_enabled))
     config.set(section, 'build_enabled', str(build_enabled))
     config.set(section, 'build_target', str(build_target))
-    config.set(section, 'fight_path', str(fight_path))
     with open(fullpath + '/bot_cfg/' + str(bot_user_id) + '.cfg','w+') as configfile:
         config.write(configfile)
 
