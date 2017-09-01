@@ -446,7 +446,7 @@ class ChatWarsAutomator(object):
                 self.arena_parser(m)
                 arena_init = True
                 continue
-            if 'Битва семи замков через' in m.message and not hero_init:
+            if ('Битва семи замков через' in m.message or 'Межсезонье' in m.message) and not hero_init:
                 self.log('Инфа о герое получена')
                 self.hero_parser(m)
                 hero_init = True
@@ -841,6 +841,7 @@ class ChatWarsAutomator(object):
         m = re.search('Битва семи замков через (?:(?:(\d+)ч)? ?(?:(\d+) минут)?|несколько секунд)', text)
         # считаем время до боя
         if not m:
+            print(re.search('Межсезонье', text))
             if re.search('Межсезонье', text):
                 self.time_to_war = 10000000
             else:
@@ -1021,7 +1022,7 @@ class ChatWarsAutomator(object):
                 self.action_list.append('🔎Поиск соперника')
                 self.log('Топаем на арену')
 
-        elif text.find('Битва семи замков через') != -1:
+        elif 'Битва семи замков через' in text or 'Межсезонье' in text:
             self.hero_parser(message)
             if self.time_to_war <= 29:
                 self.report = True
