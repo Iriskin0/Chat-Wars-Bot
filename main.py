@@ -292,10 +292,8 @@ oyster_report_castles = {
 
 arena_cover = ['🛡головы', '🛡корпуса', '🛡ног']
 arena_attack = ['🗡в голову', '🗡по корпусу', '🗡по ногам']
-# ничо не менять, все подхватится само
-castle = orders['blue']
 # текущий приказ на атаку/защиту, по умолчанию всегда защита, трогать не нужно
-current_order = {'time': 0, 'order': castle}
+current_order = {'time': 0, 'order': orders['blue']}
 
 
 def authorize(client, phone):
@@ -342,7 +340,7 @@ class ChatWarsAutomator(object):
         self.castle = None
         self.lt_info = 0
         self.lt_arena = 0
-        self.hero_message = 0
+        self.hero_message = None
         self.current_order = {'time': 0, 'order': orders['blue']}
         self.arena_delay = False
         self.arena_delay_day = -1
@@ -361,12 +359,13 @@ class ChatWarsAutomator(object):
         self.botid = 0
         self.pet_state = 'no_pet'
         self.last_pet_play = 0
+        self.class_available = False
         self.CHATWARS_PROPS = self.find_props('ChatWarsBot')
         self.CAPTCHA_PROPS  = self.find_props('ChatWarsCaptchaBot')
         self.TRADEBOT_PROPS = self.find_props('ChatWarsTradeBot')
         self.STOCKBOT_PROPS = self.find_props('PenguindrumStockBot')
         self.REDSTAT_PROPS  = self.find_props('CWRedCastleBot')
-        self.MARKET_PROPS   = self.find_group_id('ChatWarsMarket')
+        self.MARKET_PROPS   = self.find_group_id('Chat Wars Marketplace')
         self.ADMIN_PROPS    = self.find_props(admin_username)
         self.GROUP_PROPS    = self.find_group_id(group_name)
         self.ALL_PROPS = [self.CHATWARS_PROPS, self.ADMIN_PROPS, self.CAPTCHA_PROPS, self.STOCKBOT_PROPS,
@@ -687,7 +686,7 @@ class ChatWarsAutomator(object):
 
         # Информация о герое
         elif text == '#hero':
-            if self.hero_message == 0:
+            if self.hero_message is None:
                 self._send_to_admin('Информация о герое пока еще недоступна')
             else:
                 self._forward_msg(self.hero_message, self.admin_dialog)
@@ -722,15 +721,32 @@ class ChatWarsAutomator(object):
                       self.config['donate_enabled'], self.config['pet_enabled'], self.config['lvl_up'],
                       self.config['build_enabled'], self.config['build_target'], self.config['quest_fight_enabled']))
 
-            # отправка info
+        # отправка info
         elif text == '#info':
-            self._send_to_admin('\n'.join([
-                '🏅{5}|💰{0}|🔋{1}|📯{2}/{3}|🎖{4}',
-            ]).format(self.gold, self.endurance, self.arenafight.group(1), self.arenafight.group(2), self.victory,
-                      self.level))
+            infotext = '🕯' if self.class_available else ''
+            infotext += '{0}{1}|💰{2}|🔋{3}/{4}'.format(self.castle, self.level, self.gold, self.endurance, self.endurancetop)
+            if self.arenafight.group(2) != '0':
+                infotext += '|📯{0}/{1}|🎖{2}'.format(self.arenafight.group(1), self.arenafight.group(2), self.victory)
+            self._send_to_admin(infotext)
+
+        elif text == '#detail':
+            if self.hero_message is None:
+                self._send_to_admin('Информация о герое пока еще недоступна')
+            else:
+                heroText = self.hero_message.message
+                template = '{0}{1} {2}, 🏅{3}, ⚔️{4} 🛡{5}\n🔥{6}/{7} 🔋{8}/{9} 💰{10}\n🎽{11}'
+                heroName = re.search('.{2}(.*), (\w+) \w+ замка', heroText).group(1)
+                heroClass = re.search('.{2}(.*), (\w+) \w+ замка', heroText).group(2)
+                heroAtk = re.search('⚔Атака: (\d+) 🛡Защита: (\d+)', heroText).group(1)
+                heroDef = re.search('⚔Атака: (\d+) 🛡Защита: (\d+)', heroText).group(2)
+                heroExpNow = re.search('🔥Опыт: (\d+)/(\d+)', heroText).group(1)
+                heroExpNext = re.search('🔥Опыт: (\d+)/(\d+)', heroText).group(2)
+                heroEquip = re.sub('\+', '', re.search('🎽Экипировка (.+)', heroText).group(1))
+                # heroState = re.search('Состояние:\n(.+)', heroText).group(1)
+                self._send_to_admin(template.format(self.castle, heroClass, heroName, self.level, heroAtk, heroDef, heroExpNow, heroExpNext, self.endurance, self.endurancetop, self.gold, heroEquip))
 
         elif text == '#ping':
-            self._send_to_admin('pong')
+            self._send_to_admin('#pong')
 
         elif text == '#lt_arena':
             self._send_to_admin(str(self.lt_arena))
@@ -1213,8 +1229,7 @@ class ChatWarsAutomator(object):
             elif isinstance(upd, telethon.tl.types.update_new_channel_message.UpdateNewChannelMessage):
                 message = getattr(upd, 'message', None)
                 origin_id = getattr(getattr(message, 'to_id'), 'channel_id')
-                print(upd.message.message.find(self.bot_name))
-                if message is not None and message.message.find(self.bot_name) != -1 \
+                if message is not None and getattr(message, 'message', None) is not None and message.message.find(self.bot_name) != -1 \
                         and origin_id == 1112398751 \
                         and getattr(message, 'via_bot_id') == 278525885:
                     self.log('Трейд')
