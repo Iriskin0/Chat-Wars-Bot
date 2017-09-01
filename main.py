@@ -365,7 +365,7 @@ class ChatWarsAutomator(object):
         self.TRADEBOT_PROPS = self.find_props('ChatWarsTradeBot')
         self.STOCKBOT_PROPS = self.find_props('PenguindrumStockBot')
         self.REDSTAT_PROPS  = self.find_props('CWRedCastleBot')
-        self.MARKET_PROPS   = self.find_group_id('Chat Wars Marketplace')
+        self.MARKET_PROPS   = self.find_props('ChatWarsMarket')
         self.ADMIN_PROPS    = self.find_props(admin_username)
         self.GROUP_PROPS    = self.find_group_id(group_name)
         self.ALL_PROPS = [self.CHATWARS_PROPS, self.ADMIN_PROPS, self.CAPTCHA_PROPS, self.STOCKBOT_PROPS,
@@ -411,8 +411,8 @@ class ChatWarsAutomator(object):
     def find_props(self, name):
         # возвращает props по имени
         r = self.client.invoke(ResolveUsernameRequest(name))
-        # print(r)
-        return {'id': r.peer.user_id}
+        is_user = getattr(r.peer, 'user_id', None)
+        return {'id': r.peer.user_id if is_user else r.peer.channel_id}
 
     def find_props_id(self, name):
         # возвращает id props по имени
@@ -842,7 +842,7 @@ class ChatWarsAutomator(object):
         # считаем время до боя
         if not m:
             if re.search('Межсезонье', text):
-                self.time_to_war = 10000000
+                self.time_to_war = 60
             else:
                 return
         elif not m.group(1) and m.group(2):
