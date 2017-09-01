@@ -847,6 +847,8 @@ class ChatWarsAutomator(object):
                 return
         elif not m.group(1) and m.group(2):
             self.time_to_war = int(m.group(2))
+        elif m.group(1) and not m.group(2):
+            self.time_to_war = 60*int(m.group(1))
         else:
             self.time_to_war = int(m.group(1)) * 60 + int(m.group(2))
         self.log(
