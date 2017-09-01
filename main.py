@@ -650,6 +650,8 @@ def parse_text(text, username, message_id):
                 # жевотне обнаружено
                 pet_state = pet_states[re.search('Помощник:\n.+\(.+\) (.+) /pet', text).group(1)]
             m = re.search('Битва семи замков через (?:(?:(\d+)ч)? ?(?:(\d+) минут)?|несколько секунд)', text)
+            if not m and re.search('Межсезонье', text):
+                m = re.search('Битва семи замков через (?:(?:(\d+)ч)? ?(?:(\d+) минут)?|несколько секунд)', 'Битва семи замков через 10000ч 100 минут')
             if not m.group(1):
                 if m.group(2) and int(m.group(2)) <= 29:
                     report = True
