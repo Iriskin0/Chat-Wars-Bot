@@ -1,10 +1,37 @@
 #!/usr/bin/python3
 # coding=utf-8
+import telethon
+import sys
+import traceback
+import threading
+import random
+import json
+import re
+import pytz
+import os
+from time import time, sleep
+from datetime import datetime
+from collections import deque
 
-print('ЕСЛИ ВЫЛАЗИТ ОШИБКА ModuleNotFoundError: No module named \'telethon\' ПРОСТО ВЫПОЛНИТЕ КОМАНДУ pip3 install telethon')
-from pytg.sender import Sender
-from pytg.receiver import Receiver
-from pytg.utils import coroutine
+from telethon import TelegramClient
+from telethon.tl.functions.contacts import ResolveUsernameRequest
+from telethon.utils import get_input_peer
+from telethon.errors import SessionPasswordNeededError
+from telethon.utils import get_display_name
+from telethon.tl.types import UpdateShortChatMessage, UpdateShortMessage, InputPeerEmpty
+from telethon.tl.types.update_new_message import UpdateNewMessage
+from telethon.tl.types.update_edit_channel_message import UpdateEditChannelMessage
+from telethon.tl.types.update_chat_user_typing import UpdateChatUserTyping
+from telethon.tl.types.update_user_status import UpdateUserStatus
+from telethon.tl.types.update_read_history_inbox import UpdateReadHistoryInbox
+from telethon.tl.types.update_channel_pinned_message import UpdateChannelPinnedMessage
+from telethon.tl.functions.messages import GetFullChatRequest
+from telethon.tl.functions.messages import GetChatsRequest
+from telethon.tl.functions.messages import GetHistoryRequest, GetDialogsRequest
+from telethon.tl.functions.messages import ReceivedMessagesRequest
+from telethon.tl.functions.messages import ForwardMessageRequest
+from telethon.tl.functions.messages import get_messages
+
 from collections import deque
 from time import time, sleep
 from getopt import getopt
@@ -27,12 +54,20 @@ import configparser
 pathname = os.path.dirname(sys.argv[0])
 fullpath = os.path.abspath(pathname)
 
+TOTALLY_IGNORED_MESSAGE_TYPES = [
+    telethon.tl.types.update_chat_user_typing.UpdateChatUserTyping,
+    telethon.tl.types.update_user_typing.UpdateUserTyping,
+    telethon.tl.types.update_user_status.UpdateUserStatus,
+    telethon.tl.types.update_read_history_inbox.UpdateReadHistoryInbox,
+    telethon.tl.types.update_read_history_outbox.UpdateReadHistoryOutbox,
+    telethon.tl.types.update_read_channel_inbox.UpdateReadChannelInbox,
+    telethon.tl.types.update_read_channel_outbox.UpdateReadChannelOutbox,
+    telethon.tl.types.update_delete_channel_messages.UpdateDeleteChannelMessages,
+    telethon.tl.types.update_draft_message.UpdateDraftMessage,
+]
+
 api_id = 67656
 api_hash = 'd6b2cb5d21032b39b53d9a51c2021934'
-client = None
-
-# username игрового бота
-bot_username = 'ChatWarsBot'
 
 # ваш username или username человека, который может отправлять запросы этому скрипту
 admin_username = ''
@@ -51,8 +86,6 @@ stock2_bot = 'ChatWarsStock_bot'
 trade_bot = 'ChatWarsTradeBot'
 trade_bot_telethon = None
 
-market_telethon = None
-
 redstat_bot = 'RedStatBot'
 redstat2_bot = 'CWRedCastleBot'
 
@@ -64,8 +97,8 @@ socket_path = ''
 # хост чтоб слушать telegram-cli
 host = 'localhost'
 
-# порт по которому слушать
-port = 1338
+# номер для логина
+phone = None
 
 # скидывание денег покупкой/продажей шлемов
 donate_buying = False
@@ -74,14 +107,14 @@ donate_buying = False
 lvl_up = 'lvl_off'
 
 # имя группы
-group_name = ''
+group_name = None
 
 build_target = '/build_hq'
 
 # id ресурса для трейда
 resource_id_list = []
 
-config = configparser.ConfigParser()
+# config = configparser.ConfigParser()
 
 # user_id бота, используется для поиска конфига
 bot_user_id = ''
@@ -91,12 +124,31 @@ gold_to_left = 0
 # apikey для IFTTT
 apikey = None
 
-#пароль для двухшаговой авторизации
+# пароль для двухшаговой авторизации
 telethon_pw = ''
 
-opts, args = getopt(sys.argv[1:], 'a:o:s:h:p:g:b:l:n:k:w', ['admin=', 'order=', 'socket=', 'host=', 'port=',
-                                                          'gold=', 'buy=', 'lvlup=', 'group_name=', 'apikey=', '2sp='])
+# стандартный конфиг
+config = {
+    'bot_enabled': True,
+    'les_enabled': True,
+    'peshera_enabled': False,
+    'arena_enabled': True,
+    'coast_enabled': False,
+    'corovan_enabled': True,
+    'order_enabled': True,
+    'auto_def_enabled': True,
+    'donate_enabled': False,
+    'quest_fight_enabled': True,
+    'pet_enabled': False,
+    'lvl_up': 'lvl_atk',
+    'build_enabled': False,
+    'build_target': '/build_hq',
+    'autodonate_enabled': True
+}
 
+opts, args = getopt(sys.argv[1:], 'a:o:s:h:p:g:b:l:n:k:w', ['admin=', 'order=', 'socket=', 'host=', 'phone=',
+                                                            'gold=', 'buy=', 'lvlup=', 'group_name=', 'apikey=', '2sp='])
+# todo:повторную проверку аргументов после загрузки конфига из файла (перезаписывать значения)
 for opt, arg in opts:
     if opt in ('-a', '--admin'):
         admin_username = arg
@@ -106,14 +158,14 @@ for opt, arg in opts:
         socket_path = arg
     elif opt in ('-h', '--host'):
         host = arg
-    elif opt in ('-p', '--port'):
-        port = int(arg)
+    elif opt in ('-p', '--phone'):
+        phone = re.sub('[()+ ]', '', arg)
     elif opt in ('-g', '--gold'):
         gold_to_left = int(arg)
     elif opt in ('-b', '--buy'):
         donate_buying = bool(arg)
     elif opt in ('-l', '--lvlup'):
-        lvl_up = arg
+        config['lvl_up'] = arg
     elif opt in ('-n', '--group_name'):
         group_name = arg
     elif opt in ('-k', '--apikey'):
@@ -121,9 +173,11 @@ for opt, arg in opts:
     elif opt in ('-w', '--2sp'):
         telethon_pw = str(arg)
 
+config_path = fullpath + '/bot_cfg/' + phone + '.json'
+
 if apikey is not None:
     import requests
-        
+
 orders = {
     'red': '🇮🇲',
     'black': '🇬🇵',
@@ -134,8 +188,9 @@ orders = {
     'twilight': '🇰🇮',
     'lesnoi_fort': '🌲Лесной форт',
     'les': '🌲Лес',
+    'sea_fort': '⚓Морской форт',
+    'coast': '🏝Побережье',
     'gorni_fort': '⛰Горный форт',
-    'morskoi_fort': '⚓Морской форт',
     'gora': '⛰',
     'cover': '🛡 Защита',
     'attack': '⚔ Атака',
@@ -155,7 +210,11 @@ orders = {
     'more':'🏝Побережье',
     'pet_play': '⚽Поиграть',
     'pet_feed': '🍼Покормить',
-    'pet_wash': '🛁Почистить'
+    'pet_wash': '🛁Почистить',
+    'back': '⬅️Назад',
+    'arena': '📯Арена',
+    'arena_search': '🔎Поиск соперника',
+    'arena_stop': '✖️Отменить поиск'
 }
 
 captcha_answers = {
@@ -238,1119 +297,1021 @@ castle = orders['blue']
 # текущий приказ на атаку/защиту, по умолчанию всегда защита, трогать не нужно
 current_order = {'time': 0, 'order': castle}
 
-sender = Sender(sock=socket_path) if socket_path else Sender(host=host, port=port)
-action_list = deque([])
-log_list = deque([], maxlen=30)
-lt_arena = 0
-get_info_diff = 360
-hero_message_id = 0
-report_message_id = 0
-last_captcha_id = 0
-last_pet_play = 0
 
-# задаем получателя ответов бота: админ или группа
-if group_name == '':
-    pref = '@'
-    msg_receiver = admin_username
-else:
-    pref = ''
-    msg_receiver = group_name
-
-msg_receiver_telethon = None
-
-phone = '+{0}'.format(sender.get_self().phone)
-
-bot_enabled = True
-arena_enabled = True
-les_enabled = True
-peshera_enabled = False
-more_enabled = False
-corovan_enabled = True
-order_enabled = True
-auto_def_enabled = True
-donate_enabled = False
-quest_fight_enabled = True
-build_enabled = False
-twinkstock_enabled = False
-trade_active = False
-report = False
-arenafight = re.search('Поединков сегодня (\d+) из (\d+)', 'Поединков сегодня 0 из 0')
-victory = 0
-gold = 0
-endurance = 0
-level = 0
-bot_name = None
-class_available = False
-auth_request = False
-
-arena_change_enabled = False
-arena_item_id = 0
-non_arena_item_id = 0
-
-arena_running = False
-arena_delay = False
-arena_delay_day = -1
-tz = pytz.timezone('Europe/Moscow')
-
-
-def update_handler(update_object):
-    global market_telethon
-    global client
-    index = None
-    if type(update_object) is UpdatesTg \
-            and update_object.chats \
-            and bot_name is not None \
-            and not isinstance(update_object.updates[0].message, MessageService):
-        for i, update in enumerate(update_object.updates):
-            if update.message.message.find(bot_name) != -1:
-                index = i
-        if index is not None \
-                and update_object.chats[0].username == 'ChatWarsMarket' \
-                and update_object.updates[index].message.via_bot_id == 278525885 \
-                and update_object.updates[index].message.message.find(bot_name) != -1:
-            log('Трейд')
-            if update_object.updates[0].message.reply_markup is None:
-                log('Нет разметки кнопок')
-            else:
-                answer = client(GetBotCallbackAnswerRequest(
-                    InputPeerChannel(market_telethon.id, market_telethon.access_hash),
-                    update_object.updates[0].message.id,
-                    data=update_object.updates[0].message.reply_markup.rows[0].buttons[0].data
-                ))
-                if answer.message == 'Обмен произведен!':
-                    log('Приняли трейд')
-                else:
-                    log('Ответ на нажатие - '+str(answer))
-
-
-@coroutine
-def work_with_message(receiver):
-    global bot_user_id
-    global client
-    global api_id
-    global api_hash
-    global phone
-    global auth_request
-    global trade_bot_telethon
-    global msg_receiver_telethon
-    global admin_username
-    global market_telethon
-    global telethon_pw
-    while True:
-        msg = (yield)
+def authorize(client, phone):
+    client.send_code_request(phone)
+    client_user = None
+    while client_user is None:
+        code = input('Enter the code you just received: ')
         try:
-            if msg['event'] == 'message' and 'text' in msg and msg['peer'] is not None:
-                if bot_user_id == '' and msg['sender']['username'] == bot_username:
-                    bot_user_id = msg['receiver']['peer_id']
-                    log('user_id найден: {0}'.format(bot_user_id))
-                    client = TelegramClient(str(bot_user_id), api_id, api_hash)
-                    config.read(fullpath + '/bot_cfg/' + str(bot_user_id) + '.cfg')
-
-                    if config.has_section(str(bot_user_id)):
-                        log('Конфиг найден')
-                        read_config()
-                        log('Конфиг загружен')
-                    else:
-                        log('Конфиг не найден')
-                        write_config()
-                        log('Новый конфиг создан')
-
-                    client.connect()
-                    
-                    client.add_update_handler(update_handler)
-                    
-                    if not client.is_user_authorized():
-                        client.send_code_request(phone)
-                        log('Отправляем запрос на логин телетона')
-                        auth_request = True
-                    else:
-                        log('Телетон залогинен')
-                    
-                    trade_bot_telethon = client(SearchRequest(
-                        'ChatWarsTradeBot',
-                        1
-                    )).users[0]
-                    
-                    market_telethon = client(ResolveUsernameRequest(
-                        'ChatWarsMarket'
-                    )).chats[0]
-
-                    search_res = client(SearchRequest(
-                        admin_username,
-                        1
-                    ))
-                    
-                    msg_receiver_telethon = InputPeerUser(search_res.users[0].id, search_res.users[0].access_hash)
-                    
-                    '''if group_name == '':
-                        search_res = client(SearchRequest(
-                            admin_username,
-                            1
-                        ))
-                        msg_receiver_telethon = InputPeerUser(search_res.users[0].id, search_res.users[0].access_hash)
-                    else:
-                        last_date = None
-                        chunk_size = 30
-                        while True:
-                            result = client(GetDialogsRequest(
-                                offset_date=last_date,
-                                offset_id=0,
-                                offset_peer=InputPeerEmpty(),
-                                limit=chunk_size
-                            ))
-                            last_date = min(msg.date for msg in result.messages)
-                            for chat in result.chats:
-                                if chat.title == group_name:
-                                    msg_receiver_telethon = InputPeerChannel(chat.id, chat.access_hash)
-                                    break
-                            else:
-                                if not result.dialogs:
-                                    break
-                                continue
-                            break'''
-
-                    action_list.append(orders['hero'])
-
-                # Проверяем наличие юзернейма, чтобы не вываливался Exception
-                if 'username' in msg['sender']:
-                    parse_text(msg['text'], msg['sender']['username'], msg['id'])
-                if msg['sender']['peer_id'] == 777000:
-                    if 'Your login code:' in msg['text'] and auth_request:
-                        client.sign_in(phone, re.search('Your login code: ([0-9]+)', msg['text']).group(1))
-                        auth_request = False
-                        log('Телетон залогинен')
-
+            client_user = client.sign_in(phone, code)
+            # Two-step verification may be enabled
         except SessionPasswordNeededError:
-            client.sign_in(password=telethon_pw)
-            log ('Two-step verification done, pass={0}'.format(telethon_pw))
+            pw = input('Two step verification password: ')
+            client_user = client.sign_in(password=pw)
 
-        except Exception as err:
-            if apikey is not None:
-                ifttt("bot_error", "coroutine", err)
-            log('Ошибка coroutine: {0}'.format(err))
 
-            
-def queue_worker():
-    global get_info_diff
-    global lt_info
-    global arena_delay
-    global arena_delay_day
-    global tz
-    lt_info = 0
-    # Бот не пишет незнакомым юзерам, пока не поищет их
-    print(sender.contacts_search(bot_username))
-    print(sender.contacts_search(captcha_bot))
-    print(sender.contacts_search(stock_bot))
-    print(sender.contacts_search(stock2_bot))
-    print(sender.contacts_search(trade_bot))
-    print(sender.contacts_search(redstat_bot))
-    print(sender.contacts_search(redstat2_bot))
-    print(sender.contacts_search(blueoysterbot))
-    sleep(3)
-    while True:
-        try:
-            if time() - lt_info > get_info_diff:
-                if arena_delay and arena_delay_day != datetime.now(tz).day:
-                    arena_delay = False
-                lt_info = time()
-                curhour = datetime.now(tz).hour
-                if 9 <= curhour <= 23:
-                    get_info_diff = random.randint(420, 900)
+def get_buttons(message):
+    if not getattr(message, 'reply_markup', None):
+        return []
+    result = []
+    rows = getattr(message.reply_markup, 'rows', [])
+    for row in rows:
+        buttons = getattr(row, 'buttons', [])
+        for btn in buttons:
+            if hasattr(btn, 'text'):
+                result.append(btn.text)
+    return result
+
+
+class ChatWarsAutomator(object):
+    def __init__(self, client, config):
+        self.client = client
+        self.config = config
+        self.action_list = deque([])
+        self.log_list = deque([], maxlen=30)
+        self.intent = 'INIT'
+        self.latest_buttons = []
+        self.tz = pytz.timezone('Europe/Moscow')
+        self.message_queue = []
+        self.message_queue_lock = threading.Lock()
+        self.last_message_received = datetime.now()
+        self.arena_running = False
+        self.get_info_diff = random.randint(420, 900)
+        self.castle_name = None
+        self.castle = None
+        self.lt_info = 0
+        self.lt_arena = 0
+        self.hero_message = 0
+        self.current_order = {'time': 0, 'order': orders['blue']}
+        self.arena_delay = False
+        self.arena_delay_day = -1
+        self.endurance = 0
+        self.endurancetop = 0
+        self.gold = 0
+        self.petstatus = 'нет'
+        self.time_to_war = 0
+        self.report = False  # получение репорта после боя
+        self.arenafight = re.search('Поединков сегодня ([0-9]+) из ([0-9]+)', 'Поединков сегодня 0 из 0')
+        self.victory = 0  # количество побед на арене
+        self.level = 0  # уровень героя
+        self.petcount = 0  # счетчик попыток кормления пета
+        self.twinkstock_enabled = False
+        self.tradeadd = False
+        self.botid = 0
+        self.pet_state = 'no_pet'
+        self.last_pet_play = 0
+        self.CHATWARS_PROPS = self.find_props('ChatWarsBot')
+        self.CAPTCHA_PROPS  = self.find_props('ChatWarsCaptchaBot')
+        self.TRADEBOT_PROPS = self.find_props('ChatWarsTradeBot')
+        self.STOCKBOT_PROPS = self.find_props('PenguindrumStockBot')
+        self.REDSTAT_PROPS  = self.find_props('CWRedCastleBot')
+        self.MARKET_PROPS   = self.find_group_id('ChatWarsMarket')
+        self.ADMIN_PROPS    = self.find_props(admin_username)
+        self.GROUP_PROPS    = self.find_group_id(group_name)
+        self.ALL_PROPS = [self.CHATWARS_PROPS, self.ADMIN_PROPS, self.CAPTCHA_PROPS, self.STOCKBOT_PROPS,
+                          self.TRADEBOT_PROPS, self.REDSTAT_PROPS]
+        self.ADMIN_ID = self.find_props_id(admin_username)
+        self.CHATWARS_ID = self.find_props_id('ChatWarsBot')
+        self.TRADEBOT_ID = self.find_props_id('ChatWarsTradeBot')
+        self.STOCKBOT_ID = self.find_props_id('PenguindrumStockBot')
+        self.chatwars_dialog = self.find_dialog(self.CHATWARS_PROPS)
+        self.captcha_dialog  = self.find_dialog(self.CAPTCHA_PROPS)
+        self.redstat_dialog  = self.find_dialog(self.REDSTAT_PROPS)
+        self.tradebot_dialog = self.find_dialog(self.TRADEBOT_PROPS)
+        self.stockbot_dialog = self.find_dialog(self.STOCKBOT_PROPS)
+        self.market_dialog   = self.find_dialog(self.MARKET_PROPS)
+        if group_name is not None:
+            self.admin_dialog = self.find_dialog(self.GROUP_PROPS)
+        else:
+            self.admin_dialog = self.find_dialog(self.ADMIN_PROPS)
+
+    def find_dialog(self, props: object) -> object:
+        ATTEMPTS = 3
+        for i in range(ATTEMPTS):  # get_dialogs is unstable method
+            try:
+                dialogs = self.client.get_dialogs(limit=100)
+                for entity in dialogs[1]:
+                    if all(hasattr(entity, k) and getattr(entity, k) == v for k, v in props.items()):
+                        return entity
+                print('Cannot find dialog with props: %s. Trying InputPeerChat' % props)
+                try:
+                    chat = InputPeerChat(props['id'])
+                    return chat
+                except Exception as e:
+                    print('Cannot InputPeerChat')
+                return None
+            except Exception as e:
+                if i + 1 != ATTEMPTS:
+                    print('get_dialogs fucked up!. Error: "' + str(e) + '". Next attempt...')
+                    sleep(2)
                 else:
-                    get_info_diff = random.randint(600, 900)
-                if bot_enabled:
-                    send_msg('@', bot_username, orders['hero'])
+                    print('get_dialogs failed', ATTEMPTS, 'times. Fucking up :(')
+                    raise e
+
+    def find_props(self, name):
+        # возвращает props по имени
+        r = self.client.invoke(ResolveUsernameRequest(name))
+        # print(r)
+        return {'id': r.peer.user_id}
+
+    def find_props_id(self, name):
+        # возвращает id props по имени
+        r = self.client.invoke(ResolveUsernameRequest(name))
+        return r.peer.user_id
+
+    def find_group_id(self, groupname):
+        # возвращает id группы по имени
+        dialog_count = 100
+        dialogs, entities = self.client.get_dialogs(dialog_count)
+        for i, entity in enumerate(entities):
+            i += 1  # 1-based index
+            # print('{}. {}. id: {}'.format(i, get_display_name(entity), entity.id))
+            if get_display_name(entity) == groupname:
+                return {'id': entity.id}
+
+    def loop(self):
+        # инициализация и получение начальной инфы о герое
+        total, messages, _ = self.client.get_message_history(self.chatwars_dialog, limit=100)
+        arena_init = False
+        hero_init = False
+        selfid_init = False
+        for m in messages:
+            m.origin_id = m.from_id
+            if not selfid_init and m.out:
+                self.botid = m.from_id
+                self.log('botid получен: '+str(self.botid))
+                selfid_init = True
+            if 'Добро пожаловать на арену!' in m.message and not arena_init:
+                self.log('Инфа о последней арене получена')
+                self.arena_parser(m)
+                arena_init = True
                 continue
+            if 'Битва семи замков через' in m.message and not hero_init:
+                self.log('Инфа о герое получена')
+                self.hero_parser(m)
+                hero_init = True
+                continue
+        # зацикливаем и ждем обновления сообщений
+        self.client.add_update_handler(self.update_handler)
+        while True:
+            try:
+                if time() - self.lt_info > self.get_info_diff:
+                    if self.arena_delay and self.arena_delay_day != datetime.now(self.tz).day:
+                        self.arena_delay = False
+                    self.lt_info = time()
+                    curhour = datetime.now(self.tz).hour
+                    if 9 <= curhour <= 23:
+                        self.get_info_diff = random.randint(420, 900)
+                    else:
+                        self.get_info_diff = random.randint(600, 900)
+                    if self.config['bot_enabled']:
+                        self._send_to_chatwars(orders['hero'])
+                        continue
+                    continue
 
-            if len(action_list):
-                log('Отправляем ' + action_list[0])
-                send_msg('@', bot_username, action_list.popleft())
-            sleep_time = random.randint(2, 5)
-            sleep(sleep_time)
-        except Exception as err:
-            if apikey is not None:
-                ifttt("bot_error", "очереди", err)
-            log('Ошибка очереди: {0}'.format(err))
+                if len(self.action_list):
+                    self.log('Отправляем ' + self.action_list[0])
+                    self._send_to_chatwars(self.action_list.popleft())
+                sleep_time = random.randint(2, 5)
+                sleep(sleep_time)
+            except Exception as err:
+                self.log('Ошибка очереди: {0}'.format(err))
 
+    def command_from_admin(self, message):
+        self.log('Получили сообщение от администратора бота')
+        text = message.message
+        if text == '#help':
+            self._send_to_admin('\n'.join([
+                '#enable_bot - Включить бота',
+                '#disable_bot - Выключить бота',
+                '#enable_arena - Включить арену',
+                '#disable_arena - Выключить арену',
+                '#enable_les - Включить лес',
+                '#disable_les - Выключить лес',
+                '#enable_coast - Включить побережье',
+                '#disable_coast - Выключить побережье',
+                '#enable_peshera - Включить пещеры',
+                '#disable_peshera - Выключить пещеры',
+                '#enable_corovan - Включить корован',
+                '#disable_corovan - Выключить корован',
+                '#enable_order - Включить приказы',
+                '#disable_order - Выключить приказы',
+                '#enable_auto_def - Включить авто деф',
+                '#disable_auto_def - Выключить авто деф',
+                '#enable_donate - Включить донат',
+                '#disable_donate - Выключить донат',
+                '#enable_quest_fight - Включить битву во время квестов',
+                '#disable_quest_fight - Выключить битву во время квестов',
+                '#enable_buy - Включить донат в лавку вместо казны',
+                '#disable_buy - Вылючить донат в лавку вместо казны',
+                "#lvl_atk - качать атаку",
+                "#lvl_def - качать защиту",
+                "#lvl_off - ничего не качать",
+                '#status - Получить статус',
+                '#hero - Получить информацию о герое',
+                '#push_order - Добавить приказ ({0})'.format(', '.join(orders)),
+                #'#order - Дебаг, последняя команда защиты/атаки замка',
+                '#log - Дебаг, последние 30 сообщений из лога',
+                '#time - Дебаг, текущее время',
+                '#lt_arena - Дебаг, последняя битва на арене',
+                '#get_info_diff - Дебаг, последняя разница между запросами информации о герое',
+                '#ping - Дебаг, проверить жив ли бот',
+                '#enable_build - Включить постройки',
+                '#disable_build - Выключить постройки'
+                '#build_target - указать цель постройки ({0})'.format(', '.join(builds)),
+                '#stock - Обновить стоки',
+                '#info - немного оперативной информации'
+            ]))
 
-def read_config():
-    global config
-    global bot_user_id
-    global bot_enabled
-    global arena_enabled
-    global les_enabled
-    global peshera_enabled
-    global more_enabled
-    global corovan_enabled
-    global auto_def_enabled
-    global donate_enabled
-    global donate_buying
-    global lvl_up
-    global quest_fight_enabled
-    global build_enabled
-    global build_target
-    global arena_change_enabled
-    global arena_item_id
-    global non_arena_item_id
-    section=str(bot_user_id)
-    bot_enabled          = config.getboolean(section, 'bot_enabled')          if config.has_option(section, 'bot_enabled')          else bot_enabled
-    arena_enabled        = config.getboolean(section, 'arena_enabled')        if config.has_option(section, 'arena_enabled')        else arena_enabled
-    les_enabled          = config.getboolean(section, 'les_enabled')          if config.has_option(section, 'les_enabled')          else les_enabled
-    peshera_enabled      = config.getboolean(section, 'peshera_enabled')      if config.has_option(section, 'peshera_enabled')      else peshera_enabled
-    more_enabled         = config.getboolean(section, 'more_enabled')         if config.has_option(section, 'more_enabled')         else more_enabled
-    corovan_enabled      = config.getboolean(section, 'corovan_enabled')      if config.has_option(section, 'corovan_enabled')      else corovan_enabled
-    auto_def_enabled     = config.getboolean(section, 'auto_def_enabled')     if config.has_option(section, 'auto_def_enabled')     else auto_def_enabled
-    donate_enabled       = config.getboolean(section, 'donate_enabled')       if config.has_option(section, 'donate_enabled')       else donate_enabled
-    donate_buying        = config.getboolean(section, 'donate_buying')        if config.has_option(section, 'donate_buying')        else donate_buying
-    lvl_up               = config.get       (section, 'lvl_up')               if config.has_option(section, 'lvl_up')               else lvl_up
-    quest_fight_enabled  = config.getboolean(section, 'quest_fight_enabled')  if config.has_option(section, 'quest_fight_enabled')  else quest_fight_enabled
-    build_enabled        = config.getboolean(section, 'build_enabled')        if config.has_option(section, 'build_enabled')        else build_enabled
-    build_target         = config.get       (section, 'build_target')         if config.has_option(section, 'build_target')         else build_target
-    arena_change_enabled = config.getboolean(section, 'arena_change_enabled') if config.has_option(section, 'arena_change_enabled') else arena_change_enabled
-    arena_item_id        = config.get       (section, 'arena_item_id')        if config.has_option(section, 'arena_item_id')        else arena_item_id
-    non_arena_item_id    = config.get       (section, 'non_arena_item_id')    if config.has_option(section, 'non_arena_item_id')    else non_arena_item_id
+        # Вкл/выкл бота
+        elif text == '#enable_bot':
+            self.config['bot_enabled'] = True
+            save_config(self.config)
+            self._send_to_admin('Бот успешно включен')
+            self.log('Бот успешно включен')
+        elif text == '#disable_bot':
+            self.config['bot_enabled'] = False
+            save_config(self.config)
+            self._send_to_admin('Бот успешно выключен')
+            self.log('Бот успешно выключен')
 
-def write_config():
-    global config
-    global bot_user_id
-    global bot_enabled
-    global arena_enabled
-    global les_enabled
-    global peshera_enabled
-    global more_enabled
-    global corovan_enabled
-    global auto_def_enabled
-    global donate_enabled
-    global donate_buying
-    global lvl_up
-    global quest_fight_enabled
-    global build_enabled
-    global build_target
-    global arena_change_enabled
-    section=str(bot_user_id)
-    if config.has_section(section):
-        config.remove_section(section)
-    config.add_section(section)
-    config.set(section, 'bot_enabled', str(bot_enabled))
-    config.set(section, 'arena_enabled', str(arena_enabled))
-    config.set(section, 'arena_change_enabled', str(arena_change_enabled))
-    config.set(section, 'arena_item_id', str(arena_item_id))
-    config.set(section, 'non_arena_item_id', str(non_arena_item_id))
-    config.set(section, 'les_enabled', str(les_enabled))
-    config.set(section, 'peshera_enabled', str(peshera_enabled))
-    config.set(section, 'more_enabled', str(more_enabled))
-    config.set(section, 'corovan_enabled', str(corovan_enabled))
-    config.set(section, 'auto_def_enabled', str(auto_def_enabled))
-    config.set(section, 'donate_enabled', str(donate_enabled))
-    config.set(section, 'donate_buying', str(donate_buying))
-    config.set(section, 'lvl_up', str(lvl_up))
-    config.set(section, 'quest_fight_enabled', str(quest_fight_enabled))
-    config.set(section, 'build_enabled', str(build_enabled))
-    config.set(section, 'build_target', str(build_target))
-    with open(fullpath + '/bot_cfg/' + str(bot_user_id) + '.cfg','w+') as configfile:
-        config.write(configfile)
+        # Вкл/выкл арены
+        elif text == '#enable_arena':
+            self.config['arena_enabled'] = True
+            save_config(self.config)
+            self._send_to_admin('Арена успешно включена')
+            self.log('Арена успешно включена')
+        elif text == '#disable_arena':
+            self.config['arena_enabled'] = False
+            save_config(self.config)
+            self._send_to_admin('Арена успешно выключена')
+            self.log('Арена успешно выключена')
 
-def parse_text(text, username, message_id):
-    global lt_arena
-    global hero_message_id
-    global bot_enabled
-    global arena_enabled
-    global les_enabled
-    global peshera_enabled
-    global more_enabled
-    global corovan_enabled
-    global order_enabled
-    global auto_def_enabled
-    global donate_enabled
-    global donate_buying
-    global last_captcha_id
-    global arena_delay
-    global arena_delay_day
-    global tz
-    global arena_running
-    global lvl_up
-    global pref
-    global msg_receiver
-    global quest_fight_enabled
-    global build_enabled
-    global build_target
-    global twinkstock_enabled
-    global resource_id_list
-    global report
-    global gold
-    global inv
-    global endurance
-    global endurancetop
-    global state
-    global victory
-    global arenafight
-    global get_info_diff
-    global lt_info
-    global time_to_war
-    global castle_name
-    global castle
-    global level
-    global class_available
-    global last_pet_play
-    global arena_change_enabled
-    global arena_item_id
-    global non_arena_item_id
-    global trade_active
-    global report_message_id
-    global oyster_report_castles
-    global bot_name
-    if bot_enabled and username == bot_username:
-        log('Получили сообщение от бота. Проверяем условия')
+        # Вкл/выкл леса
+        elif text == '#enable_les':
+            self.config['les_enabled'] = True
+            save_config(self.config)
+            self._send_to_admin('Лес успешно включен')
+            self.log('Лес успешно включен')
+        elif text == '#disable_les':
+            self.config['les_enabled'] = False
+            save_config(self.config)
+            self._send_to_admin('Лес успешно выключен')
+            self.log('Лес успешно выключен')
 
-        if text.find('🌟Поздравляем! Новый уровень!') != -1 and lvl_up != 'lvl_off':
-            log('получили уровень - {0}'.format(orders[lvl_up]))
-            action_list.append('/level_up')
-            action_list.append(orders[lvl_up])
+        # Вкл/выкл побережья
+        elif text == '#enable_coast':
+            self.config['coast_enabled'] = True
+            save_config(self.config)
+            self._send_to_admin('Побережье успешно включено')
+            self.log('Побережье успешно включено')
+        elif text == '#disable_coast':
+            self.config['coast_enabled'] = False
+            save_config(self.config)
+            self._send_to_admin('Побережье успешно выключено')
+            self.log('Побережье успешно выключено')
+
+        # Вкл/выкл пещеры
+        elif text == '#enable_peshera':
+            self.config['peshera_enabled'] = True
+            save_config(self.config)
+            self._send_to_admin('Пещеры успешно включены')
+            self.log('Пещеры успешно включены')
+        elif text == '#disable_peshera':
+            self.config['peshera_enabled'] = False
+            save_config(self.config)
+            self._send_to_admin('Пещеры успешно выключены')
+            self.log('Пещеры успешно выключены')
+
+        # Вкл/выкл корован
+        elif text == '#enable_corovan':
+            self.config['corovan_enabled'] = True
+            save_config(self.config)
+            self._send_to_admin('Отлов корованов успешно включен')
+            self.log('Отлов корованов успешно включен')
+        elif text == '#disable_corovan':
+            self.config['corovan_enabled'] = False
+            save_config(self.config)
+            self._send_to_admin('Отлов корованов успешно выключен')
+            self.log('Отлов корованов успешно выключен')
+
+        # Вкл/выкл Автодеф
+        elif text == '#enable_auto_def':
+            self.config['auto_def_enabled'] = True
+            save_config(self.config)
+            self._send_to_admin('Автодеф успешно включен')
+            self.log('Автодеф успешно включен')
+        elif text == '#disable_auto_def':
+            self.config['auto_def_enabled'] = False
+            save_config(self.config)
+            self._send_to_admin('Автодеф успешно выключен')
+            self.log('Автодеф успешно выключен')
+
+        # Вкл/выкл Автодонат
+        elif text == '#enable_autodonate':
+            self.config['autodonate_enabled'] = True
+            save_config(self.config)
+            self._send_to_admin('Автодонат успешно включен')
+            self.log('Автодонат успешно включен')
+        elif text == '#disable_autodonate':
+            self.config['autodonate_enabled'] = False
+            save_config(self.config)
+            self._send_to_admin('Автодонат успешно выключен')
+            self.log('Автодонат успешно выключен')
+
+        # Вкл/выкл команд
+        elif text == '#enable_order':
+            self.config['order_enabled'] = True
+            save_config(self.config)
+            self._send_to_admin('Приказы успешно включены')
+            self.log('Приказы успешно включены')
+        elif text == '#disable_order':
+            self.config['order_enabled'] = False
+            save_config(self.config)
+            self._send_to_admin('Приказы успешно выключены')
+            self.log('Приказы успешно выключены')
+
+        # Вкл/выкл постройки
+        elif text == '#enable_build':
+            self.config['build_enabled'] = True
+            save_config(self.config)
+            self._send_to_admin('Постройки успешно включены')
+            self.log('Постройки успешно включены')
+        elif text == '#disable_build':
+            self.config['build_enabled'] = False
+            save_config(self.config)
+            self._send_to_admin('Постройки успешно выключены')
+            self.log('Постройки успешно выключены')
+
+        # Вкл/выкл лесных боев
+        elif text == '#enable_quest_fight':
+            self.config['quest_fight_enabled'] = True
+            save_config(self.config)
+            self._send_to_admin('Битва включена')
+            self.log('Битва включена')
+        elif text == '#disable_quest_fight':
+            self.config['quest_fight_enabled'] = False
+            save_config(self.config)
+            self._send_to_admin('Битва выключена')
+            self.log('Битва выключена')
+
+        # Вкл/выкл питомца
+        elif text == '#enable_pet':
+            self.config['pet_enabled'] = True
+            save_config(self.config)
+            self._send_to_admin('Контроль за питомцем успешно включен')
+            self.log('Контроль за питомцем успешно включен')
+        elif text == '#disable_pet':
+            self.config['pet_enabled'] = False
+            save_config(self.config)
+            self._send_to_admin('Контроль за питомцем успешно выключен')
+            self.log('Контроль за питомцем успешно выключен')
+
+        # что качать при левелапе
+        elif text == '#lvl_atk':
+            self.config['lvl_up'] = 'lvl_atk'
+            save_config(self.config)
+            self._send_to_admin('Качаем атаку')
+            self.log('Качаем атаку')
+        elif text == '#lvl_def':
+            self.config['lvl_up'] = 'lvl_def'
+            save_config(self.config)
+            self._send_to_admin('Качаем защиту')
+            self.log('Качаем защиту')
+        elif text == '#lvl_off':
+            self.config['lvl_up'] = 'lvl_off'
+            save_config(self.config)
+            self._send_to_admin('Ничего не качаем')
+            self.log('Ничего не качаем')
+
+        # Информация о герое
+        elif text == '#hero':
+            if self.hero_message == 0:
+                self._send_to_admin('Информация о герое пока еще недоступна')
+            else:
+                self._forward_msg(self.hero_message, self.admin_dialog)
+
+        # Получить лог
+        elif text == '#log':
+            self._send_to_admin('\n'.join(self.log_list))
+            self.log_list.clear()
+            self.log('Лог запрошен и очищен')
+
+        # Получить статус
+        elif text == "#status":
+            self._send_to_admin('\n'.join([
+                '🤖Бот включен: {0}',
+                '📯Арена включена: {1}',
+                '🔎Сейчас на арене: {2}',
+                '🌲Лес включен: {3}',
+                '🏝Побережье включено: {4}',
+                '🕸Пещеры включены: {5}',
+                '🐫Корованы включены: {6}',
+                '🇪🇺Приказы включены: {7}',
+                '🛡Авто деф включен: {8}',
+                '💰Донат включен: {9}',
+                '😁Питомец включен: {10}',
+                '🌟Левелап: {11}',
+                '🏘Постройка включена: {12}',
+                '🚧Цель постройки: {13}',
+                '⚔️Бои в квестах включены: {14}',
+            ]).format(self.config['bot_enabled'], self.config['arena_enabled'], self.arena_running,
+                      self.config['les_enabled'], self.config['coast_enabled'], self.config['peshera_enabled'],
+                      self.config['corovan_enabled'], self.config['order_enabled'], self.config['auto_def_enabled'],
+                      self.config['donate_enabled'], self.config['pet_enabled'], self.config['lvl_up'],
+                      self.config['build_enabled'], self.config['build_target'], self.config['quest_fight_enabled']))
+
+            # отправка info
+        elif text == '#info':
+            self._send_to_admin('\n'.join([
+                '🏅{5}|💰{0}|🔋{1}|📯{2}/{3}|🎖{4}',
+            ]).format(self.gold, self.endurance, self.arenafight.group(1), self.arenafight.group(2), self.victory,
+                      self.level))
+
+        elif text == '#ping':
+            self._send_to_admin('pong')
+
+        elif text == '#lt_arena':
+            self._send_to_admin(str(self.lt_arena))
+
+        elif text == '#time':
+            text_date = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+            self._send_to_admin(text_date)
+
+        elif text.startswith('#push_order'):
+            command = text.split(' ')[1]
+            if command in orders:
+                self.update_order(orders[command])
+                self._send_to_admin('Команда ' + command + ' применена')
+            else:
+                self._send_to_admin('Команда ' + command + ' не распознана')
+
+        elif text.startswith('#build_target'):
+            command = text.split(' ')[1]
+            if command in builds:
+                self.config['build_target'] = builds[command]
+                self._send_to_admin('Постройка ' + builds[command] + ' установлена')
+                save_config(self.config)
+            else:
+                self._send_to_admin('Постройка ' + command + ' не распознана')
+
+        elif text.startswith('#add'):
+            if self.level >= 15:
+                resource_id_list = text.split(' ')[1].split(',')
+                self.trade_add(resource_id_list)
+            else:
+                self._send_to_admin('Я еще не дорос, у меня только ' + str(self.level) + ' уровень')
+
+        elif text == '#done':
+            self._send_to_dialog('/done', self.tradebot_dialog)
+            self._send_to_admin('Предложение готово!')
+
+        # отправка стока
+        elif text == '#stock':
+            self.twinkstock_enabled = True
+            self._send_to_dialog('/start', self.tradebot_dialog)
+
+        if self.config['bot_enabled'] and self.config['order_enabled']:
+            if text.find(orders['red']) != -1:
+                self.update_order(orders['red'])
+            elif text.find(orders['black']) != -1:
+                self.update_order(orders['black'])
+            elif text.find(orders['white']) != -1:
+                self.update_order(orders['white'])
+            elif text.find(orders['yellow']) != -1:
+                self.update_order(orders['yellow'])
+            elif text.find(orders['blue']) != -1:
+                self.update_order(orders['blue'])
+            elif text.find(orders['mint']) != -1:
+                self.update_order(orders['mint'])
+            elif text.find(orders['twilight']) != -1:
+                self.update_order(orders['twilight'])
+            elif text.find('🌲') != -1:
+                self.update_order(orders['lesnoi_fort'])
+            elif text.find('⚓') != -1:
+                self.update_order(orders['sea_fort'])
+            elif text.find('⛰') != -1:
+                self.update_order(orders['gorni_fort'])
+            elif text.find('🛡') != -1:
+                self.update_order(self.castle_name)
+                # elif self.config['quest_fight_enabled'] and text.find('/fight') != -1:
+                #    c = re.search('(\/fight.*)', text).group(1)
+                #    self.action_list.append(c)
+
+    def arena_parser(self, message):
+        text = message.message
+        self.victory = re.search('Количество побед: ([0-9]+)', text).group(1)
+        self.arenafight = re.search('Поединков сегодня ([0-9]+) из ([0-9]+)', text)
+        self.log('Поединков: {0} / {1}. Побед: {2}'.format(self.arenafight.group(1), self.arenafight.group(2),
+                                                           self.victory))
+
+    def hero_parser(self, message):
+        self.hero_message = message
+        text = message.message
+        if self.castle_name is None:
+            self.castle_name = flags[re.search('(.{2}).*, .+ замка', text).group(1)]
+            self.log('Замок: ' + str(self.castle_name))
+            self.castle = orders[self.castle_name]
+            self.bot_name = re.search('.{2}(.*), .+ замка', text).group(1)
+        self.endurance = int(re.search('Выносливость: ([0-9]+)', text).group(1))
+        self.endurancetop = int(re.search('Выносливость: ([0-9]+)/([0-9]+)', text).group(2))
+        self.gold = int(re.search('💰(-?[0-9]+)', text).group(1))
+        if re.search('Помощник:', text) is not None:
+            # жевотне обнаружено
+            self.pet_state = pet_states[re.search('Помощник:\n(.*) (.+) /pet', text).group(2)]
+        self.state = re.search('Состояние:\n(.*)', text).group(1)
+        self.level = int(re.search('🏅Уровень: ([0-9]+)', text).group(1))
+        m = re.search('Битва семи замков через (?:(?:(\d+)ч)? ?(?:(\d+) минут)?|несколько секунд)', text)
+        # считаем время до боя
+        if not m:
+            return
+        elif not m.group(1) and m.group(2):
+            self.time_to_war = int(m.group(2))
+        else:
+            self.time_to_war = int(m.group(1)) * 60 + int(m.group(2))
+        self.log(
+            'Золото: {0}, выносливость: {1} / {2}, Пет: {3}, состояние: {4}, уровень: {5}, до боя {6} минут'.format(
+                self.gold, self.endurance, self.endurancetop, self.petstatus, self.state, self.level,
+                self.time_to_war))
+        # принудительное выключение фич, которые ограничены по уровню
+        if self.level < 5:
+            self.config['arena_enabled'] = False
+        if self.level < 15:
+            self.config['coast_enabled'] = False
+        if self.level < 8:
+            self.config['peshera_enabled'] = False
+
+    def parse_from_chatwars(self, message):
+        self.log('Получили сообщение от бота. Проверяем условия')
+        text = message.message
+        if text.find('🌟Поздравляем! Новый уровень!') != -1 and self.config['lvl_up'] != 'lvl_off':
+            self.log('получили уровень - {0}'.format(orders[self.config['lvl_up']]))
+            self.action_list.append('/level_up')
+            self.action_list.append(orders[self.config['lvl_up']])
 
         elif "На выходе из замка охрана никого не пропускает" in text:
-            # send_msg('@', admin_username, "Командир, у нас проблемы с капчой! #captcha " + '|'.join(captcha_answers.keys()))
-            # fwd('@', admin_username, message_id)
-            action_list.clear()
-            bot_enabled = False
-            last_captcha_id = message_id
-            fwd('@', captcha_bot, message_id)
+            self.action_list.clear()
+            self.config['bot_enabled'] = False
+            self._forward_msg(message, self.captcha_dialog)
 
-        elif 'Не умничай!' in text or 'Ты долго думал, аж вспотел от напряжения' in text:
-            send_msg('@', admin_username, "Командир, у нас проблемы с капчой! #captcha " + '|'.join(captcha_answers.keys()))
-            bot_enabled = False
-            if last_captcha_id != 0:
-                fwd('@', admin_username, message_id)
-            else:
-                send_msg('@', admin_username, 'Капча не найдена?')
+        # elif 'Не умничай!' in text or 'Ты долго думал, аж вспотел от напряжения' in text:
+        #   self._send_to_admin("Командир, у нас проблемы с капчой! #captcha " + '|'.join(captcha_answers.keys()))
+        #    bot_enabled = False
+        #    if last_captcha_id != 0:
+        #        fwd('@', admin_username, message_id)
+        #    else:
+        #        send_msg('@', admin_username, 'Капча не найдена?')
 
         elif 'На сегодня ты уже своё отвоевал. Приходи завтра.' in text:
-            arena_delay = True
-            arena_delay_day = datetime.now(tz).day
-            log("Отдыхаем денек от арены")
-            arena_running = False
+            self.arena_delay = True
+            self.arena_delay_day = datetime.now(self.tz).day
+            self.log("Отдыхаем денек от арены")
+            self.arena_running = False
 
         elif 'Ты вернулся со стройки:' in text:
-            if castle_name == 'red':
-                log("Построили, сообщаем легату")
-                fwd('@', redstat_bot, message_id)
-                fwd('@', redstat2_bot, message_id)
-            if castle_name == 'blue':
-                log("Построили, сообщаем ойстеру")
-                fwd('@', blueoysterbot, message_id)
-
-        elif 'Здание отремонтировано:' in text:
-            if castle_name == 'red':
-                log("Отремонтировали, сообщаем легату")
-                fwd('@', redstat_bot, message_id)
-                fwd('@', redstat2_bot, message_id)
-            if castle_name == 'blue':
-                log("Отремонтировали, сообщаем ойстеру")
-                fwd('@', blueoysterbot, message_id)
+            self.log("Получен репорт со стройки")
+            if self.castle_name == 'red':
+                self._forward_msg(message, self.redstat_dialog)
 
         elif 'Твои результаты в бою:' in text:
-            if castle_name == 'red':
-                log("Повоевали, сообщаем легату")
-                fwd('@', redstat_bot, message_id)
-                fwd('@', redstat2_bot, message_id)
-
-            if castle_name == 'blue':
-                log("Повоевали, сообщаем ойстеру")
-                fwd('@', blueoysterbot, message_id)
-
-                def send_order_type():
-                    if current_order['order'] == castle:
-                        send_msg('@', 'BlueOysterBot', orders['cover'])
-                    else:
-                        send_msg('@', 'BlueOysterBot', orders['attack'])
-
-                def send_order():
-                    send_msg('@', 'BlueOysterBot', oyster_report_castles[flags[current_order['order']]])
-
-                t = Timer(4, send_order_type())
-                t2 = Timer(8, send_order())
-                t.start()
-                t2.start()
-
-            report_message_id = message_id
+            self.log("Получен репорт с последнего боя")
+            if self.castle_name == 'red':
+                self._forward_msg(message, self.redstat_dialog)
 
         elif 'Закупка начинается. Отслеживание заказа:' in text:
             buytrade = re.search('обойдется примерно в ([0-9]+)💰', text).group(1)
-            gold -= int(buytrade)
-            log('Купили что-то на бирже на {0} золота'.format(buytrade))
+            self.gold -= int(buytrade)
+            self.log('Купили что-то на бирже на {0} золота'.format(buytrade))
 
         elif 'Ты пошел строить:' in text:
-            log("Ушли строить")
-            lt_info = time()
-            get_info_diff = random.randint(400, 500)
+            self.action_list.clear()
+            self.log("Ушли строить")
+            self.lt_info = time()
+            self.get_info_diff = random.randint(400, 500)
 
         elif 'Ты отправился искать приключения в пещеру' in text:
-            log("Ушли в пещеру")
-            lt_info = time()
-            get_info_diff = random.randint(400, 500)
-            endurance -= 2
+            self.action_list.clear()
+            self.log("Ушли в пещеру")
+            self.lt_info = time()
+            self.get_info_diff = random.randint(400, 500)
+            self.endurance -= 2
 
         elif 'Ты отправился искать приключения в лес' in text:
-            log("Ушли в лес")
-            lt_info = time()
-            get_info_diff = random.randint(400, 500)
-            endurance -= 1
+            self.action_list.clear()
+            self.log("Ушли в лес")
+            self.lt_info = time()
+            self.get_info_diff = random.randint(400, 500)
+            self.endurance -= 1
+
+        elif 'Ты отправился искать приключения на  побережье' in text:
+            self.action_list.clear()
+            self.log("Ушли на  побережье")
+            self.lt_info = time()
+            self.get_info_diff = random.randint(400, 500)
+            self.endurance -= 1
+
+        if text.find('Твой замок не контролирует побережье') != -1 and self.config['coast_enabled']:
+            self.log('Замок не контролирует побережье. Перенаправляю на лес')
+            self.config['coast_enabled'] = False
+            self.config['les_enabled'] = True
 
         elif 'Ищем соперника. Пока соперник не найден' in text:
-            lt_info = time()
-            get_info_diff = random.randint(900, 1200)
-            gold -= 5
-
-        elif 'Добро пожаловать на арену!' in text:
-            victory = re.search('Количество побед: (\d+)', text).group(1)
-            arenafight = re.search('Поединков сегодня (\d+) из (\d+)', text)
-            log('Поединков: {0} / {1}. Побед: {2}'.format(arenafight.group(1), arenafight.group(2), victory))
-            if 'Даже драконы не могут драться так часто' in text:
-                arena_delay = True
-                arena_delay_day = datetime.now(tz).day
-                log("Отдыхаем денек от арены")
-                arena_running = False
-                sleep(random.randint(5, 15))
-                action_list.append('⬅️Назад')
-            if arena_enabled and not arena_delay and gold >= 5 and not arena_running:
-                log('Включаем флаг - арена запущена')
-                if arena_change_enabled:
-                    action_list.append('/on_{0}'.format(arena_item_id))
-                arena_running = True
-                action_list.append('🔎Поиск соперника')
-                log('Топаем на арену')
-
-        elif 'В казне недостаточно' in text:
-            log("Стройка не удалась, в замке нет денег")
-
-        elif corovan_enabled and text.find(' /go') != -1:
-            action_list.append(orders['corovan'])
+            self.action_list.clear()
+            self.lt_info = time()
+            self.get_info_diff = random.randint(900, 1200)
+            self.gold -= 5
 
         elif 'доволен.' in text:
-            log('Поиграли с питомцем')
-            last_pet_play = round(time())
-            
+            self.log('Поиграли с питомцем')
+            self.last_pet_play = round(time())
+
         elif text.find('Запас еды:') != -1:
             play_state = pet_char_states[re.search('⚽ (.+)', text).group(1)]
             food_state = pet_char_states[re.search('🍼 (.+)', text).group(1)]
             wash_state = pet_char_states[re.search('🛁 (.+)', text).group(1)]
             food_rest = int(re.search('Запас еды: (\d+)', text).group(1))
-            log('⚽️{0} 🍼{1} 🛁{2} Запас еды {3}'.format(play_state, food_state, wash_state, food_rest))
+            self.log('⚽️{0} 🍼{1} 🛁{2} Запас еды {3}'.format(play_state, food_state, wash_state, food_rest))
             if food_rest <= 2:
-                ifttt('pet_food', food_rest, None)
-            if play_state <= 4 and round(time())-last_pet_play >= 3600:
-                action_list.append(orders['pet_play'])
-            if food_state <= 3 and food_rest != 0:
-                action_list.append(orders['pet_feed'])
+                self._send_to_admin('Питомцу скоро будет нечего жрать!')
+            if play_state <= 4 or round(time()) - self.last_pet_play >= 3600:
+                self.action_list.append(orders['pet_play'])
+            if food_state <= 4 and food_rest != 0:
+                self.action_list.append(orders['pet_feed'])
             if wash_state <= 4:
-                action_list.append(orders['pet_wash'])
-        
-        elif text.find('Битва семи замков через') != -1:
-            if castle_name is None:
-                castle_name = flags[re.search('(.{2}).*, .+ замка', text).group(1)]
-                log('Замок: '+castle_name)
-                castle = orders[castle_name]
-                bot_name = re.search('.{2}(.*), .+ замка', text).group(1)
-            class_available = bool(re.search('Определись со специализацией', text))
-            hero_message_id = message_id
-            endurance = int(re.search('Выносливость: (\d+)', text).group(1))
-            endurancetop = int(re.search('Выносливость: (\d+)/(\d+)', text).group(2))
-            gold = int(re.search('💰(-?[0-9]+)', text).group(1))
-            inv = re.search('🎒Рюкзак: ([0-9]+)/([0-9]+)', text)
-            level = int(re.search('🏅Уровень: (\d+)', text).group(1))
-            log('Уровень: {0}, золото: {1}, выносливость: {2} / {3}, Рюкзак: {4} / {5}'.format(level, gold, endurance, endurancetop, inv.group(1), inv.group(2)))
-            pet_state = 'no_pet'
-            if re.search('Помощник:', text) is not None:
-                # жевотне обнаружено
-                pet_state = pet_states[re.search('Помощник:\n.+\(.+\) (.+) /pet', text).group(1)]
-            m = re.search('Битва семи замков через (?:(?:(\d+)ч)? ?(?:(\d+) минут)?|несколько секунд)', text)
-            if not m.group(1):
-                if m.group(2) and int(m.group(2)) <= 29:
-                    report = True
-                    state = re.search('Состояние:\n(.*)', text).group(1)
-                    if auto_def_enabled and time() - current_order['time'] > 1800 and 'Отдых' in state:
-                        if castle_name == 'red':
-                            fwd('@', redstat_bot, hero_message_id)
-                            log("отправляем профиль легату")
-                        elif castle_name == 'blue':
-                            fwd('@', blueoysterbot, hero_message_id)
-                            log("отправляем профиль ойстеру")
-                        if donate_enabled:
-                            if int(inv.group(1)) == int(inv.group(2)):
-                                log('Полный рюкзак - Донат в лавку отключен')
-                                donate_buying = False
-                            if gold > gold_to_left:
-                                if donate_buying:
-                                    log('Донат {0} золота в лавку'.format(gold - gold_to_left))
-                                    action_list.append(orders['castle_menu'])
-                                    action_list.append(orders['lavka'])
-                                    action_list.append(orders['shlem'])
-                                    while (gold - gold_to_left) >= 35:
-                                        gold -= 35
-                                        action_list.append('/buy_helmet2')
-                                    while (gold - gold_to_left) > 0:
-                                        gold -= 1
-                                        action_list.append('/buy_helmet1')
-                                        action_list.append('/sell_206')
-                                else:
-                                    log('Донат {0} золота в казну замка'.format(gold - gold_to_left))
-                                    action_list.append('/donate {0}'.format(gold - gold_to_left))
-                                    gold -= gold_to_left
-                        update_order(castle)
-                    return
-                else:
-                    # если битва через несколько секунд
-                    report = True
-                    return
-            time_to_war = int(m.group(1) if m.group(1) else 0) * 60 + int(m.group(2) if m.group(2) else 0)
-            log('Времени достаточно. До боя осталось {0} минут'.format(time_to_war))
-            if report:
-                action_list.append('/report')
-                sleep(random.randint(3, 6))
-                log('запросили репорт по битве')
-                report = False
-            if text.find('🛌Отдых') == -1 and text.find('🛡Защита ') == -1:
-                log('Чем-то занят, ждём')
-            else:
-                # Подумаем, а надо ли так часто ходить куда нибудь )
-                if not build_enabled:
-                    log('на стройку нам не нужно')
-                    curhour = datetime.now(tz).hour
-                    if not arena_enabled or arena_delay or curhour > 23 or curhour < 8:
-                        log('на арену тоже не нужно')
-                        if int(endurancetop) - int(endurance) >= 5:
-                            # минут за 35-45 до битвы имеет смысл выйти из спячки
-                            sleeping = time_to_war * 60 - 60 * random.randint(35, 45)
-                            log('выносливости мало, можно и подремать до боя {0} минут'.format(int(sleeping / 60)))
-                            lt_info = time()
-                            get_info_diff = sleeping
-                            return
-                    elif gold < 5 and endurance == 0 and time_to_war > 60:
-                        sleeping = 60 * random.randint(30, 40)
-                        log('выносливости нет, денег нет, можно и подремать до боя {0} минут'.format(int(sleeping / 60)))
-                        lt_info = time()
-                        get_info_diff = sleeping
+                self.action_list.append(orders['pet_wash'])
+            sleep(random.randint(8, 12))
+            self.action_list.append('⬅️Назад')
 
-                if text.find('🛌Отдых') != -1 and arena_running:
-                    arena_running = False
-                    
-                if re.search('Помощник:', text) is not None and pet_state == 'med' or pet_state == 'bad': 
-                    log('Идем проверить питомца')
-                    action_list.append('/pet')
-                
-                elif peshera_enabled and endurance >= 2 and level >= 7:
-                    if les_enabled:
-                        action_list.append(orders['quests'])
-                        action_list.append(random.choice([orders['peshera'], orders['les']]))
-                    else:
-                        action_list.append(orders['quests'])
-                        action_list.append(orders['peshera'])
+        elif 'Добро пожаловать на арену!' in text:
+            self.arena_parser(message)
 
-                elif les_enabled and not peshera_enabled and endurance >= 1 and orders['les'] not in action_list:
-                    action_list.append(orders['quests'])
-                    action_list.append(orders['les'])
+        elif 'В казне недостаточно' in text:
+            self.log("Стройка не удалась, в замке нет денег")
 
-                elif more_enabled and not les_enabled and not peshera_enabled and endurance >= 1 and orders['more'] not in action_list:
-                    action_list.append(orders['quests'])
-                    action_list.append(orders['more'])
+        elif 'Ты приготовился к защите' in text:
+            self.action_list.clear()
 
-                elif arena_enabled and not arena_delay and gold >= 5 and not arena_running and level >= 5:
-                    curhour = datetime.now(tz).hour
-                    if 9 <= curhour <= 23:
-                        action_list.append(orders['castle_menu'])
-                        action_list.append('📯Арена')
-                    else:
-                        log('По часам не проходим на арену. Сейчас ' + str(curhour) + ' часов')
-                        if build_enabled and level >= 10:
-                            log('Пойдем строить')
-                            if random.randint(0, 1) == 0:
-                                action_list.append(build_target)
-                            else:
-                                action_list.append(orders['castle_menu'])
-                                action_list.append('🏘Постройки')
-                                action_list.append('🚧Стройка')
-                                action_list.append(build_target)
+        elif self.config['corovan_enabled'] and text.find(' /go') != -1:
+            self.action_list.append(orders['corovan'])
 
-                elif build_enabled and level >= 10:
-                    log('Пойдем строить')
-                    if random.randint(0, 1) == 0:
-                        action_list.append(build_target)
-                    else:
-                        action_list.append(orders['castle_menu'])
-                        action_list.append('🏘Постройки')
-                        action_list.append('🚧Стройка')
-                        action_list.append(build_target)
-
-        elif arena_enabled and text.find('выбери точку атаки и точку защиты') != -1:
-            arena_running = True  # на случай, если арена запущена руками
-            lt_arena = time()
-            lt_info = time()
-            get_info_diff = random.randint(400, 500)
+        elif self.config['arena_enabled'] and text.find('выбери точку атаки и точку защиты') != -1:
+            self.arena_running = True  # на случай, если арена запущена руками
+            self.lt_arena = time()
+            self.lt_info = time()
+            self.get_info_diff = random.randint(400, 500)
             attack_chosen = arena_attack[random.randint(0, 2)]
             cover_chosen = arena_cover[random.randint(0, 2)]
-            log('Атака: {0}, Защита: {1}'.format(attack_chosen, cover_chosen))
-            sleep(random.randint(2,6))
-            if random.randint(0,1):
-                action_list.append(attack_chosen)
-                action_list.append(cover_chosen)
+            self.log('Атака: {0}, Защита: {1}'.format(attack_chosen, cover_chosen))
+            sleep(random.randint(2, 6))
+            if random.randint(0, 1):
+                self.action_list.append(attack_chosen)
+                self.action_list.append(cover_chosen)
             else:
-                action_list.append(cover_chosen)
-                action_list.append(attack_chosen)
+                self.action_list.append(cover_chosen)
+                self.action_list.append(attack_chosen)
 
         elif text.find('Победил воин') != -1 or text.find('Ничья') != -1:
-            lt_info = time()
-            get_info_diff = random.randint(60, 120)
-            log('Выключаем флаг - арена закончилась')
-            arena_running = False
-            if arena_change_enabled: 
-                action_list.append('/on_{0}'.format(non_arena_item_id))
+            self.lt_info = time()
+            self.get_info_diff = random.randint(60, 120)
+            self.log('Выключаем флаг - арена закончилась')
+            self.arena_running = False
 
-        elif quest_fight_enabled and text.find('/fight') != -1:
-            c = re.search('\/fight.*', text).group(0)
-            action_list.append(c)
-            fwd(pref, msg_receiver, message_id)
+        elif self.config['quest_fight_enabled'] and text.find('/fight') != -1:
+            c = re.search('(/fight.*)', text).group(1)
+            self.action_list.append(c)
+            self._forward_msg(message, self.admin_dialog)
 
-    elif username == 'ChatWarsCaptchaBot':
-        if len(text) <= 4 and text in captcha_answers.values():
-            sleep(3)
-            action_list.append(text)
-            bot_enabled = True
+        elif 'Добро пожаловать на арену!' in text:
+            victory = re.search('Количество побед: (\d+)', text).group(1)
+            arenafight = re.search('Поединков сегодня (\d+) из (\d+)', text)
+            self.log('Поединков: {0} / {1}. Побед: {2}'.format(arenafight.group(1), arenafight.group(2), victory))
+            if 'Даже драконы не могут драться так часто' in text:
+                self.arena_delay = True
+                self.arena_delay_day = datetime.now(self.tz).day
+                self.log("Отдыхаем денек от арены")
+                self.arena_running = False
+                self.action_list.append('⬅️Назад')
+            if self.config['arena_enabled'] and not self.arena_delay and self.gold >= 5 and not self.arena_running:
+                self.log('Включаем флаг - арена запущена')
+                #if arena_change_enabled:
+                #    action_list.append('/on_{0}'.format(arena_item_id))
+                self.arena_running = True
+                self.action_list.append('🔎Поиск соперника')
+                self.log('Топаем на арену')
 
-    elif username == 'ChatWarsTradeBot' and twinkstock_enabled:
-        if text.find('Твой склад с материалами') != -1:
-            stock_id = message_id
-            fwd('@', 'PenguindrumStockBot', stock_id)
-            twinkstock_enabled = False
-            send_msg(pref, msg_receiver, 'Сток обновлен')
-
-    elif username == 'ChatWarsTradeBot' and len(resource_id_list) != 0 and trade_active == False:
-        log('добавляем ресурсы по списку..')
-        trade_active = True
-        for res_id in resource_id_list:
-            if re.search('\/add_'+res_id+' ', text):
-                count = re.search('/add_'+res_id+'\D+(.*)', text).group(1)
-                send_msg('@', trade_bot, '/add_'+res_id+' '+str(count))
-                log('Добавили '+str(count)+' шт. ресурса '+res_id)
-                send_msg(pref, msg_receiver, 'Добавлено '+str(count)+' шт. ресурса '+res_id)
-                sleep_time = random.randint(2, 5)
-                sleep(sleep_time)
+        elif text.find('Битва семи замков через') != -1:
+            self.hero_parser(message)
+            if self.time_to_war <= 29:
+                self.report = True
+                if self.state == '📯На арене':
+                    self.action_list.append(orders['castle_menu'])
+                    self.action_list.append(orders['arena'])
+                    self.action_list.append(orders['arena_stop'])
+                if self.config['auto_def_enabled'] and time() - self.current_order[
+                    'time'] > 1800 and 'Отдых' in self.state:
+                    if self.castle_name == 'red':
+                        self._forward_msg(message, self.redstat_dialog)
+                    self.update_order(self.castle_name)
+                    if self.config['donate_enabled']:
+                        if self.gold > 0:
+                            self.log('Донат {0} золота в казну замка'.format(self.gold))
+                            self.action_list.append('/donate {0}'.format(self.gold))
+                            self.gold -= self.gold
+                return
             else:
-                log('На складе нет ресурса '+res_id)
-                send_msg(pref, msg_receiver, 'На складе нет ресурса '+res_id)
-        resource_id_list = []
-        send_msg('@', trade_bot, '/done')
-        log('Предложение готово')
-        trade_active = False
+                self.log('Времени достаточно')
+            if self.report:
+                self.action_list.append('/report')
+                sleep(random.randint(3, 6))
+                self.log('Запросили репорт по битве')
+                self.report = False
+
+            if text.find('🛌Отдых') == -1 and text.find('🛡Защита ') == -1:
+                self.log('Чем-то занят, ждём')
+            else:
+                # Подумаем, а надо ли так часто ходить куда нибудь )
+                if re.search('Помощник:',
+                             text) is not None and self.pet_state == 'good' or self.pet_state == 'med' or self.pet_state == 'bad':
+                    self.log('Идем проверить питомца')
+                    self.action_list.append('/pet')
+                    return
+                if not self.config['build_enabled']:
+                    self.log('на стройку нам не нужно')
+                    curhour = datetime.now(self.tz).hour
+                    if not self.config['arena_enabled'] or self.arena_delay or curhour > 23 or curhour < 8:
+                        self.log('на арену тоже не нужно')
+                        if int(self.endurancetop) - int(self.endurance) >= 4:
+                            # минут за 35-45 до битвы имеет смысл выйти из спячки
+                            sleeping = self.time_to_war * 60 - 60 * random.randint(35, 45)
+                            self.log('выносливости мало, можно и подремать до боя {0} минут'.format(int(sleeping / 60)))
+                            self.lt_info = time()
+                            self.get_info_diff = sleeping
+                            return
+                    elif self.gold < 5 and self.endurance == 0 and self.time_to_war > 60:
+                        sleeping = 60 * random.randint(30, 40)
+                        self.log('выносливости нет, денег нет, можно и подремать в ожидании стамины {0} минут'.format(
+                            int(sleeping / 60)))
+                        self.lt_info = time()
+                        self.get_info_diff = sleeping
+                        return
+
+                if text.find('🛌Отдых') != -1 and self.arena_running:
+                    self.arena_running = False
+                if self.config['peshera_enabled'] and self.endurance >= 2:
+                    if self.config['les_enabled']:
+                        self.action_list.append(orders['quests'])
+                        self.action_list.append(random.choice([orders['peshera'], orders['les']]))
+                    else:
+                        self.action_list.append(orders['quests'])
+                        self.action_list.append(orders['peshera'])
+
+                elif self.config['les_enabled'] and not self.config['peshera_enabled'] and self.endurance >= 1 and \
+                                orders['les'] not in self.action_list:
+                    self.action_list.append(orders['quests'])
+                    self.action_list.append(orders['les'])
+
+                elif self.config['coast_enabled'] and not self.config['peshera_enabled'] and self.endurance >= 1 and \
+                                orders['coast'] not in self.action_list:
+                    self.action_list.append(orders['quests'])
+                    self.action_list.append(orders['coast'])
+
+                elif self.config['arena_enabled'] and not self.arena_delay and \
+                                self.gold >= 5 and not self.arena_running:
+                    curhour = datetime.now(self.tz).hour
+                    if 9 <= curhour <= 23:
+                        self.action_list.append(orders['castle_menu'])
+                        self.action_list.append(orders['arena'])
+                    else:
+                        self.log('По часам не проходим на арену. Сейчас ' + str(curhour) + ' часов')
+                        if self.config['build_enabled']:
+                            self.log('Пойдем строить')
+                            self.action_list.append(self.config['build_target'])
+
+                elif self.config['build_enabled']:
+                    self.log('Пойдем строить')
+                    self.action_list.append(self.config['build_target'])
+
+    def parsed_text(self, message):
+        text = message.message
+        origin_id = message.origin_id
+        if origin_id == self.ADMIN_ID:
+            self.command_from_admin(message)
+
+        elif self.config['bot_enabled'] and origin_id == self.CHATWARS_ID:
+            self.parse_from_chatwars(message)
+
+        elif self.twinkstock_enabled and origin_id == self.TRADEBOT_ID:
+            if text.find('Твой склад с материалами') != -1:
+                self._forward_msg(message, self.stockbot_dialog)
+                self.twinkstock_enabled = False
+                self._send_to_admin('Сток обновлен')
+
+    def trade_add(self, res_id_list):
+        if not self.tradeadd:
+            self._send_to_dialog('/start',self.tradebot_dialog)
+            self.tradeadd = True
+            sleep(1)
+
+        if self.tradeadd and len(res_id_list) != 0:
+            total, messages, _ = self.client.get_message_history(self.tradebot_dialog, limit=1)
+            for m in messages:
+                text = m.message
+                self.log('добавляем ресурсы по списку..')
+                for res_id in res_id_list:
+                    if re.search('/add_' + res_id + ' ', text):
+                        count = re.search('/add_' + res_id + '\D+(.*)', text).group(1)
+                        self._send_to_dialog('/add_' + res_id + ' ' + str(count), self.tradebot_dialog)
+                        self.log('Добавили ' + str(count) + ' шт. ресурса ' + res_id)
+                        self._send_to_admin('Добавлено ' + str(count) + ' шт. ресурса ' + res_id)
+                        sleep(random.randint(2, 5))
+                    else:
+                        self.log('На складе нет ресурса ' + res_id)
+                        self._send_to_admin('На складе нет ресурса ' + res_id)
+        self._send_to_dialog('/done', self.tradebot_dialog)
+        self.log('Предложение готово')
+        self.tradeadd = False
         sleep(2)
-        send_last_trade_offer()
-
-    else:
-        if quest_fight_enabled and text.find('/fight') != -1 and level >= 15:
-            c = re.search('\/fight.*', text).group(0)
-            action_list.append(c)
-    
-        if bot_enabled and order_enabled and (username in order_usernames or username == admin_username):
-            if text.find(orders['red']) != -1:
-                update_order(orders['red'])
-            elif text.find(orders['black']) != -1:
-                update_order(orders['black'])
-            elif text.find(orders['white']) != -1:
-                update_order(orders['white'])
-            elif text.find(orders['yellow']) != -1:
-                update_order(orders['yellow'])
-            elif text.find(orders['blue']) != -1:
-                update_order(orders['blue'])
-            elif text.find(orders['mint']) != -1:
-                update_order(orders['mint'])
-            elif text.find(orders['twilight']) != -1:
-                update_order(orders['twilight'])
-            elif text.find('🌲') != -1:
-                update_order(orders['lesnoi_fort'])
-            elif text.find('⛰') != -1:
-                update_order(orders['gorni_fort'])
-            elif text.find('⚓️') != -1:
-                update_order(orders['morskoi_fort'])
-            elif text.find('🛡') != -1:
-                update_order(castle)
-
-        # send_msg(pref, admin_username, 'Получили команду ' + current_order['order'] + ' от ' + username)
-        if username == admin_username:
-            if text == '#help':
-                send_msg(pref, msg_receiver, '\n'.join([
-                    '#enable_bot - Включить бота',
-                    '#disable_bot - Выключить бота',
-                    '#enable_arena - Включить арену',
-                    '#disable_arena - Выключить арену',
-                    '#enable_les - Включить лес',
-                    '#disable_les - Выключить лес',
-                    '#enable_peshera - Включить пещеры',
-                    '#disable_peshera - Выключить пещеры',
-                    '#enable_more - Включить побережье',
-                    '#disable_more - Выключить побережье',
-                    '#enable_corovan - Включить корован',
-                    '#disable_corovan - Выключить корован',
-                    '#enable_order - Включить приказы',
-                    '#disable_order - Выключить приказы',
-                    '#enable_auto_def - Включить авто деф',
-                    '#disable_auto_def - Выключить авто деф',
-                    '#enable_donate - Включить донат',
-                    '#disable_donate - Выключить донат',
-                    '#enable_quest_fight - Включить битву во время квестов',
-                    '#disable_quest_fight - Выключить битву во время квестов',
-                    '#enable_buy - Включить донат в лавку вместо казны',
-                    '#disable_buy - Вылючить донат в лавку вместо казны',
-                    '#set_arena_change *id предмета на арене* *id предмета вне арены* - Включить переодевание перед ареной и после нее (например рапира и кирка)',
-                    '#disable_arena_change - Выключить переодевание перед ареной и после нее',
-                    "#lvl_atk - качать атаку",
-                    "#lvl_def - качать защиту",
-                    "#lvl_off - ничего не качать",
-                    '#status - Получить статус',
-                    '#hero - Получить информацию о герое',
-                    '#push_order - Добавить приказ ({0})'.format(','.join(orders)),
-                    '#order - Дебаг, последняя команда защиты/атаки замка',
-                    '#log - Дебаг, последние 30 сообщений из лога',
-                    '#time - Дебаг, текущее время',
-                    '#lt_arena - Дебаг, последняя битва на арене',
-                    '#get_info_diff - Дебаг, последняя разница между запросами информации о герое',
-                    '#ping - Дебаг, проверить жив ли бот',
-                    '#enable_build - Включить постройки',
-                    '#disable_build - Выключить постройки',
-                    '#build_target - указать цель постройки/починки ({0})'.format(','.join(builds)),
-                    '#stock - Обновить стоки',
-                    '#info - Немного оперативной информации',
-                    '#detail - Почти вся информация о герое, только компактнее',
-                    '#report - Получить репорт с прошлой битвы',
-                    '#eval - Дебаг, выполнить запрос вручную'
-                ]))
-
-            # отправка info
-            elif text == '#info':
-                infotext = '🕯' if class_available else ''
-                infotext += '{0}{1}, 💰{2}, 🔋{3}/{4}'.format(castle, level, gold, endurance, endurancetop)
-                if arenafight.group(2) != '0':
-                    infotext += ', 🤺{0}/{1}, 🌟{2}'.format(arenafight.group(1), arenafight.group(2), victory)
-                send_msg(pref, msg_receiver, infotext)
-
-            # Вкл/выкл бота
-            elif text == '#enable_bot':
-                bot_enabled = True
-                write_config()
-                send_msg(pref, msg_receiver, 'Бот успешно включен')
-            elif text == '#disable_bot':
-                bot_enabled = False
-                write_config()
-                send_msg(pref, msg_receiver, 'Бот успешно выключен')
-
-            # отправка стока
-            elif text == '#stock':
-                if level >= 15:
-                    twinkstock_enabled = True
-                    send_msg('@',trade_bot,'/start')
-                else:
-                    send_msg(pref, msg_receiver, 'Я еще не дорос, у меня только '+str(level)+' уровень')
-
-            # Вкл/выкл арены
-            elif text == '#enable_arena':
-                arena_enabled = True
-                write_config()
-                lt_info = time()
-                get_info_diff = random.randint(400, 500)
-                if level >= 5:
-                    send_msg(pref, msg_receiver, 'Арена успешно включена')
-                    log('Арена успешно включена, скоро пойдем бить морды')
-                else:
-                    send_msg(pref, msg_receiver, 'Арена успешно включена, но у меня только {0} уровень'.format(level))
-                    log('Арена успешно включена, скоро пойдем бить морды, но у меня только {0} уровень'.format(level))
-            elif text == '#disable_arena':
-                arena_enabled = False
-                write_config()
-                send_msg(pref, msg_receiver, 'Арена успешно выключена')
-
-            # Вкл/выкл леса
-            elif text == '#enable_les':
-                les_enabled = True
-                write_config()
-                send_msg(pref, msg_receiver, 'Лес успешно включен')
-            elif text == '#disable_les':
-                les_enabled = False
-                write_config()
-                send_msg(pref, msg_receiver, 'Лес успешно выключен')
-
-            # Вкл/выкл пещеры
-            elif text == '#enable_peshera':
-                peshera_enabled = True
-                write_config()
-                send_msg(pref, msg_receiver, 'Пещеры успешно включены')
-            elif text == '#disable_peshera':
-                peshera_enabled = False
-                write_config()
-                send_msg(pref, msg_receiver, 'Пещеры успешно выключены')
-
-            # Вкл/выкл побережье
-            elif text == '#enable_more':
-                more_enabled = True
-                write_config()
-                send_msg(pref, msg_receiver, 'Побережье успешно включено')
-            elif text == '#disable_more':
-                more_enabled = False
-                write_config()
-                send_msg(pref, msg_receiver, 'Побережье успешно выключено')
-
-            # Вкл/выкл корована
-            elif text == '#enable_corovan':
-                corovan_enabled = True
-                write_config()
-                send_msg(pref, msg_receiver, 'Корованы успешно включены')
-            elif text == '#disable_corovan':
-                corovan_enabled = False
-                write_config()
-                send_msg(pref, msg_receiver, 'Корованы успешно выключены')
-
-            # Вкл/выкл команд
-            elif text == '#enable_order':
-                order_enabled = True
-                send_msg(pref, msg_receiver, 'Приказы успешно включены')
-            elif text == '#disable_order':
-                order_enabled = False
-                send_msg(pref, msg_receiver, 'Приказы успешно выключены')
-
-            # Вкл/выкл авто деф
-            elif text == '#enable_auto_def':
-                auto_def_enabled = True
-                write_config()
-                send_msg(pref, msg_receiver, 'Авто деф успешно включен')
-            elif text == '#disable_auto_def':
-                auto_def_enabled = False
-                write_config()
-                send_msg(pref, msg_receiver, 'Авто деф успешно выключен')
-
-            # Вкл/выкл авто донат
-            elif text == '#enable_donate':
-                donate_enabled = True
-                write_config()
-                send_msg(pref, msg_receiver, 'Донат успешно включен')
-            elif text == '#disable_donate':
-                donate_enabled = False
-                write_config()
-                send_msg(pref, msg_receiver, 'Донат успешно выключен')
-
-            # Вкл/выкл донат в лавку
-            elif text == '#enable_buy':
-                donate_buying = True
-                write_config()
-                send_msg(pref, msg_receiver, 'Донат в лавку успешно включен')
-            elif text == '#disable_buy':
-                donate_buying = False
-                write_config()
-                send_msg(pref, msg_receiver, 'Донат в лавку успешно выключен')
-            
-            # Вкл/выкл переодевание перед ареной и после нее
-            elif text.startswith('#set_arena_change'):
-                arena_change_enabled = True
-                arena_item_id = text.split(' ')[1]
-                non_arena_item_id = text.split(' ')[2]
-                write_config()
-                send_msg(pref, msg_receiver, 'Переодевание перед ареной и после нее успешно включено. На арене - {0}, вне арены - {1}'.format(arena_item_id, non_arena_item_id))
-            elif text == '#disable_arena_change':
-                arena_change_enabled = False
-                write_config()
-                send_msg(pref, msg_receiver, 'Переодевание перед ареной и после нее успешно выключено')
-            
-            # Вкл/выкл битву по время квеста
-            elif text == '#enable_quest_fight':
-                quest_fight_enabled = True
-                write_config()
-                send_msg(pref, msg_receiver, 'Битва включена')
-            elif text == '#disable_quest_fight':
-                quest_fight_enabled = False
-                write_config()
-                send_msg(pref, msg_receiver, 'Битва отключена')
-
-            # что качать при левелапе
-            elif text == '#lvl_atk':
-                lvl_up = 'lvl_atk'
-                write_config()
-                send_msg(pref, msg_receiver, 'Качаем атаку')
-            elif text == '#lvl_def':
-                lvl_up = 'lvl_def'
-                write_config()
-                send_msg(pref, msg_receiver, 'Качаем защиту')
-            elif text == '#lvl_off':
-                lvl_up = 'lvl_off'
-                write_config()
-                send_msg(pref, msg_receiver, 'Не качаем ничего')
-
-            # Получить статус
-            elif text == '#status':
-                send_msg(pref, msg_receiver, '\n'.join([
-                    '🤖Бот включен: {0}',
-                    '📯Арена включена: {1}',
-                    '🔎Сейчас на арене: {2}',
-                    '🌲Лес включен: {3}',
-                    '🕸Пещеры включены: {4}',
-                    '🏝Побережье включено: {5}',
-                    '🐫Корованы включены: {6}',
-                    '🇪🇺Приказы включены: {7}',
-                    '🛡Авто деф включен: {8}',
-                    '💰Донат включен: {9}',
-                    '🏚Донат в лавку вместо казны: {10}',
-                    '🌟Левелап: {11}',
-                    '🏘Постройка включена: {12}',
-                    '🚧Цель постройки: {13}',
-                ]).format(bot_enabled, arena_enabled, arena_running, les_enabled, peshera_enabled, more_enabled, corovan_enabled, order_enabled,
-                          auto_def_enabled, donate_enabled, donate_buying,orders[lvl_up],build_enabled,build_target))
-
-            # Информация о герое
-            elif text == '#hero':
-                if hero_message_id == 0:
-                    send_msg(pref, msg_receiver, 'Информация о герое пока еще недоступна')
-                else:
-                    fwd(pref, msg_receiver, hero_message_id)
-            
-            # Информация о герое
-            elif text == '#report':
-                if report_message_id == 0:
-                    send_msg(pref, msg_receiver, 'Информация о репорте пока еще недоступна')
-                else:
-                    fwd(pref, msg_receiver, report_message_id)
-            
-            elif text == '#detail':
-                if hero_message_id == 0:
-                    send_msg(pref, msg_receiver, 'Информация о герое пока еще недоступна')
-                else:
-                    heroText  = sender.message_get(hero_message_id).text
-                    template  = '{0}{1} {2}, 🏅{3}, ⚔️{4} 🛡{5}\n🔥{6}/{7} 🔋{8}/{9} 💰{10}\n🎽{11}'
-                    heroName  = re.search('.{2}(.*), (\w+) \w+ замка', heroText).group(1)
-                    heroClass = re.search('.{2}(.*), (\w+) \w+ замка', heroText).group(2)
-                    heroAtk   = re.search('⚔Атака: (\d+) 🛡Защита: (\d+)', heroText).group(1)
-                    heroDef   = re.search('⚔Атака: (\d+) 🛡Защита: (\d+)', heroText).group(2)
-                    heroExpNow  = re.search('🔥Опыт: (\d+)/(\d+)', heroText).group(1)
-                    heroExpNext = re.search('🔥Опыт: (\d+)/(\d+)', heroText).group(2)
-                    heroEquip = re.sub('\+', '', re.search('🎽Экипировка (.+)', heroText).group(1))
-                    # heroState = re.search('Состояние:\n(.+)', heroText).group(1)
-                    send_msg(pref, msg_receiver, template.format(castle, heroClass, heroName, level, heroAtk, heroDef, heroExpNow, heroExpNext, endurance, endurancetop, gold, heroEquip))
-
-            # Получить лог
-            elif text == '#log':
-                send_msg(pref, msg_receiver, '\n'.join(log_list))
-                log_list.clear()
-                log('Лог запрошен и очищен')
-
-            elif text == '#lt_arena':
-                send_msg(pref, msg_receiver, str(lt_arena))
-
-            elif text == '#order':
-                text_date = datetime.fromtimestamp(current_order['time']).strftime('%Y-%m-%d %H:%M:%S')
-                send_msg(pref, msg_receiver, current_order['order'] + ' ' + text_date)
-
-            elif text == '#time':
-                text_date = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-                send_msg(pref, msg_receiver, text_date)
-
-            elif text == '#ping':
-                send_msg(pref, msg_receiver, '#pong')
-
-            elif text == '#get_info_diff':
-                send_msg(pref, msg_receiver, str(get_info_diff))
-
-            elif text.startswith('#push_order'):
-                command = text.split(' ')[1]
-                if command in orders:
-                    update_order(orders[command])
-                    send_msg(pref, msg_receiver, 'Команда ' + command + ' применена')
-                else:
-                    send_msg(pref, msg_receiver, 'Команда ' + command + ' не распознана')
-
-            elif text.startswith('#build_target'):
-                command = text.split(' ')[1]
-                if command in builds:
-                    build_target = builds[command]
-                    send_msg(pref, msg_receiver, 'Постройка ' + builds[command] + ' установлена')
-                    write_config()
-                else:
-                    send_msg(pref, msg_receiver, 'Постройка ' + command + ' не распознана')
-
-            elif text.startswith('#captcha'):
-                command = text.split(' ')[1]
-                if command in captcha_answers:
-                    action_list.append(captcha_answers[command])
-                    bot_enabled = True
-                    send_msg('@', admin_username, 'Команда ' + command + ' применена')
-                else:
-                    send_msg('@', admin_username, 'Команда ' + command + ' не распознана')
-
-            # Вкл/выкл построек
-            elif text == '#enable_build':
-                build_enabled = True
-                write_config()
-                lt_info = time()
-                get_info_diff = random.randint(400, 500)
-                send_msg(pref, msg_receiver, 'Постройка успешно включена')
-                log('Постройка успешно включена, скоро пойдем строить')
-            elif text == '#disable_build':
-                build_enabled = False
-                write_config()
-                send_msg(pref, msg_receiver, 'Постройка успешно выключена')
-
-            elif text.startswith('#add'):
-                if level >= 15:
-                    resource_id_list = text.split(' ')[1].split(',')
-                    send_msg('@', trade_bot, '/start')
-                else:
-                    send_msg(pref, msg_receiver, 'Я еще не дорос, у меня только '+str(level)+' уровень')
-                    
-            elif text.startswith('#eval'):
-                eval(re.search('#eval (.+)', text).group(1))
+        self._send_last_trade_offer()
 
 
-def send_msg(pref, to, message):
-    sender.send_msg(pref + to, message)
+    def log(self, message):
+        textlog = '{0:%Y-%m-%d+ %H:%M:%S}'.format(datetime.now()) + ' ' + message
+        print(textlog)
+        self.log_list.append(textlog)
+
+    def update_order(self, order):
+        self.current_order['order'] = order
+        self.current_order['time'] = time()
+        if order == self.castle_name:
+            self.action_list.append(orders['cover'])
+        else:
+            self.action_list.append(orders['attack'])
+        self.action_list.append(order)
+
+    def _send_to_chatwars(self, text):
+        sleep(random.randint(2, 5))
+        # print('Sending to chatwars: "%s"' % text)
+        self.client.send_message(self.chatwars_dialog, text)
+
+    def _send_to_admin(self, text):
+        sleep(random.randint(1, 2))
+        # print('Sending to admin: "%s"' % text)
+        self.client.send_message(self.admin_dialog, text)
+
+    def _send_to_dialog(self, text, dialog):
+        sleep(random.randint(1, 2))
+        # print('Sending to admin: "%s"' % text)
+        self.client.send_message(dialog, text)
+
+    def _forward_msg(self, msg, dialog):
+        if not dialog:
+            print('Skipped forwarding msg because dialog not found')
+            return
+        fwd_id = telethon.helpers.generate_random_long()
+        peer = telethon.utils.get_input_peer(dialog)
+        msg_id = getattr(msg, 'id', None)
+        sleep(random.randint(1, 2))
+        if msg_id:
+            # print('Forwarding', msg_id, 'to', peer, msg)
+            self.client.invoke(ForwardMessageRequest(peer, msg_id, fwd_id))
+            return True
+        else:
+            print('Cannot forward message: msg id unavailable: ', msg)
+            print('Destination dialog: ', dialog)
+            return False
+
+    def update_handler(self, tgupdate):
+        self.last_message_received = datetime.now()
+        if hasattr(tgupdate, 'updates'):
+            updates = tgupdate.updates
+        elif hasattr(tgupdate, 'update'):
+            updates = [tgupdate.update]
+        elif isinstance(tgupdate, telethon.tl.types.update_short_message.UpdateShortMessage):
+            updates = [tgupdate]
+        elif isinstance(tgupdate, telethon.tl.types.update_short_chat_message.UpdateShortChatMessage):
+            updates = [tgupdate]
+        else:
+            # print('Skipped TGUpdate of class %s: ' % tgupdate.__class__.__name__, tgupdate, dir(tgupdate))
+            return
+        for upd in updates:
+            if any(isinstance(upd, cls) for cls in TOTALLY_IGNORED_MESSAGE_TYPES):
+                # 100% ignored to not shit into console
+                continue
+            if isinstance(upd, telethon.tl.types.update_new_message.UpdateNewMessage):
+                message = getattr(upd, 'message', None)
+                origin_id = getattr(message, 'from_id', None)
+            elif isinstance(upd, telethon.tl.types.update_short_message.UpdateShortMessage):
+                message = upd
+                origin_id = getattr(message, 'user_id', None)
+            elif isinstance(upd, telethon.tl.types.update_edit_message.UpdateEditMessage):
+                message = getattr(upd, 'message', None)
+                origin_id = getattr(message, 'from_id', None)
+            elif isinstance(upd, telethon.tl.types.update_short_chat_message.UpdateShortChatMessage):
+                message = upd
+                origin_id = getattr(message, 'from_id', None)  # Also field 'chat_id' is present
+            elif isinstance(upd, telethon.tl.types.update_new_channel_message.UpdateNewChannelMessage):
+                message = getattr(upd, 'message', None)
+                origin_id = getattr(getattr(message, 'to_id'), 'channel_id')
+                print(upd.message.message.find(self.bot_name))
+                if message is not None and message.message.find(self.bot_name) != -1 \
+                        and origin_id == 1112398751 \
+                        and getattr(message, 'via_bot_id') == 278525885:
+                    self.log('Трейд')
+                    if message.reply_markup is None:
+                        self.log('Нет разметки кнопок')
+                    else:
+                        answer = self.client(GetBotCallbackAnswerRequest(
+                            self.market_dialog,
+                            message.id,
+                            data=message.reply_markup.rows[0].buttons[0].data
+                        ))
+                        if answer.message == 'Обмен произведен!':
+                            self.log('Приняли трейд')
+                        else:
+                            self.log('Ответ на нажатие - ' + str(answer))
+            elif isinstance(upd, telethon.tl.types.update_edit_channel_message.UpdateEditChannelMessage):
+                message = getattr(upd, 'message', None)
+                origin_id = getattr(getattr(message, 'to_id'), 'channel_id')
+            elif isinstance(upd, UpdateChannelPinnedMessage):
+                print('Handling UpdateChannelPinnedMessage: ', upd)
+                self._handle_update_pinned_message(upd)
+                continue
+
+            else:
+                # print('Skipped update class:', upd.__class__.__name__, upd)
+                continue
+            if not message:
+                # print('Skipped update without "message" field')
+                continue
+            if all(origin_id != prop['id'] for prop in self.ALL_PROPS) and origin_id != self.botid:
+                # print('Skipped message not from chatwars bot: ', message)
+                continue
+            # print('New message: ', message, dir(message))
+            # print('Text: ', message.message)
+            # print('Buttons: ', get_buttons(message))
+            message.origin_id = origin_id
+            # with self.message_queue_lock:
+            #    self.message_queue.append(message)
+            self.parsed_text(message)
+
+    def _handle_update_pinned_message(self, upd):
+        pass
+
+    def _send_last_trade_offer(self):
+        query_results = self.client(GetInlineBotResultsRequest(
+            self.tradebot_dialog,
+            InputPeerSelf(),
+            '',
+            ''
+        ))
+        self.client(SendInlineBotResultRequest(
+            self.admin_dialog,
+            query_results.query_id,
+            query_results.results[0].id
+        ))
+        self.log('Предложение отправлено')
 
 
-def fwd(pref, to, message_id):
-    sender.fwd(pref + to, message_id)
+def save_config(CONFIG):
+    with open(config_path, 'w+') as outfile:
+        json.dump(CONFIG, outfile, indent=2)
 
 
-def ifttt(event, val2, val3):
-    requests.get("https://maker.ifttt.com/trigger/"+event+"/with/key/"+apikey, params={'value1': str(port), 'value2': val2, 'value3': val3})
+def read_config():
+    with open(config_path) as f:
+        return json.load(f)
 
 
-def update_order(order):
-    current_order['order'] = order
-    current_order['time'] = time()
-    if order == castle:
-        action_list.append(orders['cover'])
-    else:
-        action_list.append(orders['attack'])
-    action_list.append(order)
-
-
-def log(text):
-    message = '{0:%Y-%m-%d+ %H:%M:%S}'.format(datetime.now()) + ' ' + text
-    print(message)
-    log_list.append(message)
-
-
-def send_last_trade_offer():
-    global client
-    global msg_receiver_telethon
-    global trade_bot_telethon
-    query_results = client(GetInlineBotResultsRequest(
-        InputUser(trade_bot_telethon.id, trade_bot_telethon.access_hash),
-        InputPeerSelf(),
-        '',
+def main():
+    try:
+        open(config_path)
+    except FileNotFoundError as e:
+        print('Конфиг не найден')
+        save_config(config)
+        print('Новый конфиг создан')
+    except Exception as e:
         ''
-    ))
-    client(SendInlineBotResultRequest(
-        msg_receiver_telethon,
-        query_results.query_id,
-        query_results.results[0].id
-    ))
-    log('Предложение отправлено')
+        print(str(e))
+    CONFIG = read_config()
+    while True:
+        print('Connecting to telegram...')
+        client = telethon.TelegramClient(phone, api_id, api_hash)
+        client.connect()
+        if not client.is_user_authorized():
+            print('Not authorized')
+            authorize(client, phone)
+        try:
+            print('Connected to telegram')
+            a = ChatWarsAutomator(client, CONFIG)
+            a.loop()
+        except Exception as e:
+            print('Exception during chatwars automation process: ', e)
+            traceback.print_exc()
+        print('Disconnecting...')
+        client.disconnect()
+        sleep(5)
 
 
 if __name__ == '__main__':
-    receiver = Receiver(sock=socket_path) if socket_path else Receiver(port=port)
-    receiver.start()  # start the Connector.
-    _thread.start_new_thread(queue_worker, ())
-    receiver.message(work_with_message(receiver))
-    receiver.stop()
+    main()
