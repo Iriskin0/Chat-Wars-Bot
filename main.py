@@ -841,7 +841,10 @@ class ChatWarsAutomator(object):
         m = re.search('Битва семи замков через (?:(?:(\d+)ч)? ?(?:(\d+) минут)?|несколько секунд)', text)
         # считаем время до боя
         if not m:
-            return
+            if re.search('Межсезонье', text):
+                self.time_to_war = 10000000
+            else:
+                return
         elif not m.group(1) and m.group(2):
             self.time_to_war = int(m.group(2))
         else:
