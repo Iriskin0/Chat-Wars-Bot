@@ -279,7 +279,7 @@ victory = 0
 gold = 0
 endurance = 0
 level = 0
-bot_name = ''
+bot_name = None
 class_available = False
 auth_request = False
 
@@ -299,7 +299,7 @@ def update_handler(update_object):
     index = None
     if type(update_object) is UpdatesTg \
             and update_object.chats \
-            and bot_name != '' \
+            and bot_name is not None \
             and not isinstance(update_object.updates[0].message, MessageService):
         for i, update in enumerate(update_object.updates):
             if update.message.message.find(bot_name) != -1:
@@ -319,6 +319,8 @@ def update_handler(update_object):
                 ))
                 if answer.message == 'Обмен произведен!':
                     log('Приняли трейд')
+                else:
+                    log('Ответ на нажатие - '+str(answer))
 
 
 @coroutine
@@ -333,7 +335,7 @@ def work_with_message(receiver):
     global msg_receiver_telethon
     global admin_username
     global market_telethon
-    lobal telethon_pw
+    global telethon_pw
     while True:
         msg = (yield)
         try:
@@ -354,24 +356,33 @@ def work_with_message(receiver):
                         log('Новый конфиг создан')
 
                     client.connect()
+                    
                     client.add_update_handler(update_handler)
-
+                    
                     if not client.is_user_authorized():
                         client.send_code_request(phone)
                         log('Отправляем запрос на логин телетона')
                         auth_request = True
                     else:
                         log('Телетон залогинен')
-
+                    
                     trade_bot_telethon = client(SearchRequest(
                         'ChatWarsTradeBot',
                         1
                     )).users[0]
+                    
                     market_telethon = client(ResolveUsernameRequest(
                         'ChatWarsMarket'
                     )).chats[0]
 
-                    if group_name == '':
+                    search_res = client(SearchRequest(
+                        admin_username,
+                        1
+                    ))
+                    
+                    msg_receiver_telethon = InputPeerUser(search_res.users[0].id, search_res.users[0].access_hash)
+                    
+                    '''if group_name == '':
                         search_res = client(SearchRequest(
                             admin_username,
                             1
@@ -389,14 +400,14 @@ def work_with_message(receiver):
                             ))
                             last_date = min(msg.date for msg in result.messages)
                             for chat in result.chats:
-                                if chat.title == 'Tvink_Inc.':
+                                if chat.title == group_name:
                                     msg_receiver_telethon = InputPeerChannel(chat.id, chat.access_hash)
                                     break
                             else:
                                 if not result.dialogs:
                                     break
                                 continue
-                            break
+                            break'''
 
                     action_list.append(orders['hero'])
 
@@ -412,7 +423,7 @@ def work_with_message(receiver):
         except SessionPasswordNeededError:
             client.sign_in(password=telethon_pw)
             log ('Two-step verification done, pass={0}'.format(telethon_pw))
-            
+
         except Exception as err:
             if apikey is not None:
                 ifttt("bot_error", "coroutine", err)
@@ -625,7 +636,7 @@ def parse_text(text, username, message_id):
                 fwd('@', redstat2_bot, message_id)
             if castle_name == 'blue':
                 log("Построили, сообщаем ойстеру")
-                fwd('@', 'BlueOysterBot', message_id)
+                fwd('@', blueoysterbot, message_id)
 
         elif 'Здание отремонтировано:' in text:
             if castle_name == 'red':
@@ -634,7 +645,7 @@ def parse_text(text, username, message_id):
                 fwd('@', redstat2_bot, message_id)
             if castle_name == 'blue':
                 log("Отремонтировали, сообщаем ойстеру")
-                fwd('@', 'BlueOysterBot', message_id)
+                fwd('@', blueoysterbot, message_id)
 
         elif 'Твои результаты в бою:' in text:
             if castle_name == 'red':
@@ -644,7 +655,7 @@ def parse_text(text, username, message_id):
 
             if castle_name == 'blue':
                 log("Повоевали, сообщаем ойстеру")
-                fwd('@', 'BlueOysterBot', message_id)
+                fwd('@', blueoysterbot, message_id)
 
                 def send_order_type():
                     if current_order['order'] == castle:
@@ -738,7 +749,7 @@ def parse_text(text, username, message_id):
                 castle_name = flags[re.search('(.{2}).*, .+ замка', text).group(1)]
                 log('Замок: '+castle_name)
                 castle = orders[castle_name]
-                bot_name = re.search('.{4}(.*), .+ замка', text).group(1)
+                bot_name = re.search('.{2}(.*), .+ замка', text).group(1)
             class_available = bool(re.search('Определись со специализацией', text))
             hero_message_id = message_id
             endurance = int(re.search('Выносливость: (\d+)', text).group(1))
@@ -907,12 +918,11 @@ def parse_text(text, username, message_id):
     elif username == 'ChatWarsTradeBot' and twinkstock_enabled:
         if text.find('Твой склад с материалами') != -1:
             stock_id = message_id
-            fwd('@', stock_bot, stock_id)
-            fwd('@', stock2_bot, stock_id)
+            fwd('@', 'PenguindrumStockBot', stock_id)
             twinkstock_enabled = False
             send_msg(pref, msg_receiver, 'Сток обновлен')
 
-    elif username == 'ChatWarsTradeBot' and len(resource_id_list)!= 0 and trade_active == False:
+    elif username == 'ChatWarsTradeBot' and len(resource_id_list) != 0 and trade_active == False:
         log('добавляем ресурсы по списку..')
         trade_active = True
         for res_id in resource_id_list:
@@ -1330,7 +1340,6 @@ def send_last_trade_offer():
         '',
         ''
     ))
-
     client(SendInlineBotResultRequest(
         msg_receiver_telethon,
         query_results.query_id,
