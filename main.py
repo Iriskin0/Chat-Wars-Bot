@@ -31,6 +31,10 @@ from telethon.tl.functions.messages import GetHistoryRequest, GetDialogsRequest
 from telethon.tl.functions.messages import ReceivedMessagesRequest
 from telethon.tl.functions.messages import ForwardMessageRequest
 from telethon.tl.functions.messages import get_messages
+from telethon.tl.functions.messages import GetInlineBotResultsRequest, SendInlineBotResultRequest, GetDialogsRequest, GetBotCallbackAnswerRequest
+from telethon.tl.functions.contacts import SearchRequest, ResolveUsernameRequest
+from telethon.tl.functions.channels import JoinChannelRequest, GetFullChannelRequest
+from telethon.tl.functions.account  import UpdateNotifySettingsRequest
 
 from collections import deque
 from time import time, sleep
@@ -41,8 +45,6 @@ from telethon import TelegramClient
 from telethon.errors import SessionPasswordNeededError
 # from telethon.tl.types import InputUser, InputPeerUser, InputPeerChannel, InputPeerSelf, InputPeerEmpty
 from telethon.tl.types import *
-from telethon.tl.functions.messages import GetInlineBotResultsRequest, SendInlineBotResultRequest, GetDialogsRequest, GetBotCallbackAnswerRequest
-from telethon.tl.functions.contacts import SearchRequest, ResolveUsernameRequest
 import sys
 import os
 import re
@@ -127,6 +129,9 @@ apikey = None
 # пароль для двухшаговой авторизации
 telethon_pw = ''
 
+# зайдет в маркет, если нет диалога
+join_market = False
+
 # стандартный конфиг
 config = {
     'bot_enabled': True,
@@ -146,8 +151,8 @@ config = {
     'autodonate_enabled': True
 }
 
-opts, args = getopt(sys.argv[1:], 'a:o:s:h:p:g:b:l:n:k:w', ['admin=', 'order=', 'socket=', 'host=', 'phone=',
-                                                            'gold=', 'buy=', 'lvlup=', 'group_name=', 'apikey=', '2sp='])
+opts, args = getopt(sys.argv[1:], 'ja:o:s:h:p:g:bl:n:k:w:', ['join', 'admin=', 'order=', 'socket=', 'host=', 'phone=',
+                                                            'gold=', 'buy', 'lvlup=', 'group_name=', 'apikey=', '2sp='])
 # todo:повторную проверку аргументов после загрузки конфига из файла (перезаписывать значения)
 for opt, arg in opts:
     if opt in ('-a', '--admin'):
@@ -159,11 +164,11 @@ for opt, arg in opts:
     elif opt in ('-h', '--host'):
         host = arg
     elif opt in ('-p', '--phone'):
-        phone = re.sub('[()+ ]', '', arg)
+        phone = re.sub('[()-+ ]', '', arg)
     elif opt in ('-g', '--gold'):
         gold_to_left = int(arg)
     elif opt in ('-b', '--buy'):
-        donate_buying = bool(arg)
+        donate_buying = True
     elif opt in ('-l', '--lvlup'):
         config['lvl_up'] = arg
     elif opt in ('-n', '--group_name'):
@@ -172,6 +177,8 @@ for opt, arg in opts:
         apikey = str(arg)
     elif opt in ('-w', '--2sp'):
         telethon_pw = str(arg)
+    elif opt in ('-j', '--join'):
+        join_market = True
 
 config_path = fullpath + '/bot_cfg/' + phone + '.json'
 
@@ -374,16 +381,31 @@ class ChatWarsAutomator(object):
         self.CHATWARS_ID = self.find_props_id('ChatWarsBot')
         self.TRADEBOT_ID = self.find_props_id('ChatWarsTradeBot')
         self.STOCKBOT_ID = self.find_props_id('PenguindrumStockBot')
-        self.chatwars_dialog = self.find_dialog(self.CHATWARS_PROPS)
-        self.captcha_dialog  = self.find_dialog(self.CAPTCHA_PROPS)
-        self.redstat_dialog  = self.find_dialog(self.REDSTAT_PROPS)
-        self.tradebot_dialog = self.find_dialog(self.TRADEBOT_PROPS)
-        self.stockbot_dialog = self.find_dialog(self.STOCKBOT_PROPS)
-        self.market_dialog   = self.find_dialog(self.MARKET_PROPS)
+        self.chatwars_dialog = self.find_dialog_user('ChatWarsBot')
+        self.captcha_dialog  = self.find_dialog_user('ChatWarsCaptchaBot')
+        self.redstat_dialog  = self.find_dialog_user('CWRedCastleBot')
+        self.tradebot_dialog = self.find_dialog_user('ChatWarsTradeBot')
+        self.stockbot_dialog = self.find_dialog_user('ChatWarsBot')
+        self.market_dialog   = self.find_dialog_chat('ChatWarsMarket')
+        self.market_chat     = self.get_market_input_peer()
         if group_name is not None:
             self.admin_dialog = self.find_dialog(self.GROUP_PROPS)
         else:
-            self.admin_dialog = self.find_dialog(self.ADMIN_PROPS)
+            self.admin_dialog = self.find_dialog_user(admin_username)
+
+        if join_market:
+            if self.market_dialog.left:
+                # не в чате
+                self.client.invoke(JoinChannelRequest(self.market_dialog))
+                self.market_dialog = self.find_dialog_chat('ChatWarsMarket')
+            market_full = self.client.invoke(GetFullChannelRequest(self.market_dialog)).full_chat
+            if market_full.notify_settings.mute_until != 0:
+                # замьючен
+                market_notify_peer = InputNotifyPeer(self.market_chat)
+                self.client.invoke(UpdateNotifySettingsRequest(market_notify_peer, InputPeerNotifySettings(0, 'default')))
+
+    def find_dialog_user(self, username: str):
+        return self.client.invoke(ResolveUsernameRequest(username)).users[0]
 
     def find_dialog(self, props: object) -> object:
         ATTEMPTS = 3
@@ -393,12 +415,7 @@ class ChatWarsAutomator(object):
                 for entity in dialogs[1]:
                     if all(hasattr(entity, k) and getattr(entity, k) == v for k, v in props.items()):
                         return entity
-                print('Cannot find dialog with props: %s. Trying InputPeerChat' % props)
-                try:
-                    chat = InputPeerChat(props['id'])
-                    return chat
-                except Exception as e:
-                    print('Cannot InputPeerChat')
+                print('Cannot find dialog with props: %s. :c' % props)
                 return None
             except Exception as e:
                 if i + 1 != ATTEMPTS:
@@ -407,6 +424,13 @@ class ChatWarsAutomator(object):
                 else:
                     print('get_dialogs failed', ATTEMPTS, 'times. Fucking up :(')
                     raise e
+
+    def find_dialog_chat(self, username: str) -> object:
+        return self.client.invoke(ResolveUsernameRequest(username)).chats[0]
+
+    def get_market_input_peer(self):
+        market_chat = self.client.invoke(ResolveUsernameRequest('ChatWarsMarket')).chats[0]
+        return InputPeerChannel(market_chat.id, market_chat.access_hash)
 
     def find_props(self, name):
         # возвращает props по имени
