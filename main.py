@@ -1,7 +1,6 @@
 #!/usr/bin/python3
 # coding=utf-8
 import telethon
-import sys
 import traceback
 import threading
 import random
@@ -9,8 +8,6 @@ import json
 import re
 import pytz
 import os
-from time import time, sleep
-from datetime import datetime
 from collections import deque
 
 from telethon import TelegramClient
@@ -34,7 +31,7 @@ from telethon.tl.functions.messages import get_messages
 from telethon.tl.functions.messages import GetInlineBotResultsRequest, SendInlineBotResultRequest, GetDialogsRequest, GetBotCallbackAnswerRequest
 from telethon.tl.functions.contacts import SearchRequest, ResolveUsernameRequest
 from telethon.tl.functions.channels import JoinChannelRequest, GetFullChannelRequest
-from telethon.tl.functions.account  import UpdateNotifySettingsRequest
+from telethon.tl.functions.account  import UpdateNotifySettingsRequest, CheckUsernameRequest, UpdateUsernameRequest
 
 from collections import deque
 from time import time, sleep
@@ -52,6 +49,8 @@ import _thread
 import random
 import pytz
 import configparser
+import requests
+import names
 
 pathname = os.path.dirname(sys.argv[0])
 fullpath = os.path.abspath(pathname)
@@ -93,12 +92,6 @@ redstat2_bot = 'CWRedCastleBot'
 
 blueoysterbot = 'BlueOysterBot'
 
-# путь к сокет файлу
-socket_path = ''
-
-# хост чтоб слушать telegram-cli
-host = 'localhost'
-
 # номер для логина
 phone = None
 
@@ -132,6 +125,15 @@ telethon_pw = ''
 # зайдет в маркет, если нет диалога
 join_market = False
 
+# путь к конфигу
+config_path = ''
+
+# регистрировать номер
+reg_number = False
+reg_apikey = None
+reg_service = None
+reg_generate_name = False
+
 # стандартный конфиг
 config = {
     'bot_enabled': True,
@@ -151,18 +153,14 @@ config = {
     'autodonate_enabled': True
 }
 
-opts, args = getopt(sys.argv[1:], 'ja:o:s:h:p:g:bl:n:k:w:', ['join', 'admin=', 'order=', 'socket=', 'host=', 'phone=',
-                                                            'gold=', 'buy', 'lvlup=', 'group_name=', 'apikey=', '2sp='])
+opts, args = getopt(sys.argv[1:], 'ja:o:p:g:bl:n:k:w:r:', ['join', 'admin=', 'order=', 'phone=',
+                                                             'gold=', 'buy', 'lvlup=', 'group_name=', 'apikey=', '2sp=', 'reg=', 'reg-service=', 'gen-name'])
 # todo:повторную проверку аргументов после загрузки конфига из файла (перезаписывать значения)
 for opt, arg in opts:
     if opt in ('-a', '--admin'):
         admin_username = arg
     elif opt in ('-o', '--order'):
         order_usernames = arg.split(',')
-    elif opt in ('-s', '--socket'):
-        socket_path = arg
-    elif opt in ('-h', '--host'):
-        host = arg
     elif opt in ('-p', '--phone'):
         phone = re.sub('[()-+ ]', '', arg)
     elif opt in ('-g', '--gold'):
@@ -179,8 +177,13 @@ for opt, arg in opts:
         telethon_pw = str(arg)
     elif opt in ('-j', '--join'):
         join_market = True
-
-config_path = fullpath + '/bot_cfg/' + phone + '.json'
+    elif opt in ('-r'):
+        reg_number = True
+        reg_apikey = str(arg)
+    elif opt in ('--reg-service'):
+        reg_service = arg
+    elif opt in ('--gen-name'):
+        reg_generate_name = True
 
 if apikey is not None:
     import requests
@@ -214,7 +217,7 @@ orders = {
     'lvl_def': '+1 🛡Защита',
     'lvl_atk': '+1 ⚔Атака',
     'lvl_off': 'Выключен',
-    'more':'🏝Побережье',
+    'more': '🏝Побережье',
     'pet_play': '⚽Поиграть',
     'pet_feed': '🍼Покормить',
     'pet_wash': '🛁Почистить',
@@ -302,18 +305,89 @@ arena_attack = ['🗡в голову', '🗡по корпусу', '🗡по но
 # текущий приказ на атаку/защиту, по умолчанию всегда защита, трогать не нужно
 current_order = {'time': 0, 'order': orders['blue']}
 
-
-def authorize(client, phone):
-    client.send_code_request(phone)
+def authorize(client, phone_num):
+    client.send_code_request(phone_num)
     client_user = None
     while client_user is None:
         code = input('Enter the code you just received: ')
         try:
-            client_user = client.sign_in(phone, code)
+            client_user = client.sign_in(phone_num, code)
             # Two-step verification may be enabled
         except SessionPasswordNeededError:
             pw = input('Two step verification password: ')
             client_user = client.sign_in(password=pw)
+
+
+class Reg(object):
+    def __init__(self, service):
+        self.service = service
+
+    def send_request(self, method, params=None):
+        if self.service == 'sms-reg':
+            if not params:
+                params = {}
+            if not getattr(params, 'apikey', None):
+                params['apikey'] = reg_apikey
+            r = requests.get('http://api.sms-reg.com/{0}.php'.format(method), params=params)
+            return r.json()
+
+    def get_balance(self):
+        balance_request = self.send_request('getBalance')
+
+        if balance_request['response'] != "1":
+            raise Exception('Ошибка при получении баланса: ' + balance_request['error_msg'])
+
+        return float(balance_request['balance'])
+
+    def get_tzid(self):
+        get_num_request = self.send_request('getNum', {'service': 'telegram'})
+
+        if get_num_request['response'] != "1":
+            raise Exception('Ошибка при получении номера: '+get_num_request['error_msg'])
+
+        return int(get_num_request['tzid'])
+
+    def wait_num(self, tzid):
+        number = None
+
+        while number is None:
+            state_request = self.send_request('getState', {'tzid': tzid})
+            if state_request['response'] == "WARNING_NO_NUMS":
+                raise Exception('Нет свободных номеров, попробуй еще раз через 5 минут')
+            elif state_request['response'] == "TZ_INPOOL":
+                print('Жду номера')
+                sleep(10)
+            elif state_request['response'] == "TZ_NUM_PREPARE":
+                number = state_request['number']
+                print('Получен номер: {0}'.format(number))
+            else:
+                print('Другой ответ: {0}'.format(state_request['response']))
+        return number
+
+    def set_ready(self, tzid):
+        set_ready_request = self.send_request('setReady', {'tzid': tzid})
+        if set_ready_request['response'] != "1":
+            raise Exception('Ошибка при отправке готовности: '+set_ready_request['error_msg'])
+
+    def wait_code(self, tzid):
+        code = None
+
+        while code is None:
+            state_request = self.send_request('getState', {'tzid': tzid})
+            if state_request['response'] == "TZ_NUM_WAIT":
+                print('Жду код')
+                sleep(10)
+            elif state_request['response'] == "TZ_NUM_ANSWER":
+                code = state_request['number']
+                print('Получен код: {0}'.format(code))
+            else:
+                print('Другой ответ: {0}'.format(state_request['response']))
+        return code
+
+    def set_ok(self, tzid):
+        set_ok_request = self.send_request('setOperationOk', {'tzid': tzid})
+        if set_ok_request['response'] != "1":
+            raise Exception('Ошибка при завершении операции: '+set_ok_request['error_msg'])
 
 
 def get_buttons(message):
@@ -367,6 +441,7 @@ class ChatWarsAutomator(object):
         self.pet_state = 'no_pet'
         self.last_pet_play = 0
         self.class_available = False
+        self.res_id_list = []
         self.CHATWARS_PROPS = self.find_props('ChatWarsBot')
         self.CAPTCHA_PROPS  = self.find_props('ChatWarsCaptchaBot')
         self.TRADEBOT_PROPS = self.find_props('ChatWarsTradeBot')
@@ -385,7 +460,7 @@ class ChatWarsAutomator(object):
         self.captcha_dialog  = self.find_dialog_user('ChatWarsCaptchaBot')
         self.redstat_dialog  = self.find_dialog_user('CWRedCastleBot')
         self.tradebot_dialog = self.find_dialog_user('ChatWarsTradeBot')
-        self.stockbot_dialog = self.find_dialog_user('ChatWarsBot')
+        self.stockbot_dialog = self.find_dialog_user('PenguindrumStockBot')
         self.market_dialog   = self.find_dialog_chat('ChatWarsMarket')
         self.market_chat     = self.get_market_input_peer()
         if group_name is not None:
@@ -490,7 +565,6 @@ class ChatWarsAutomator(object):
                         self.get_info_diff = random.randint(600, 900)
                     if self.config['bot_enabled']:
                         self._send_to_chatwars(orders['hero'])
-                        continue
                     continue
 
                 if len(self.action_list):
@@ -502,8 +576,8 @@ class ChatWarsAutomator(object):
                 self.log('Ошибка очереди: {0}'.format(err))
 
     def command_from_admin(self, message):
-        self.log('Получили сообщение от администратора бота')
         text = message.message
+        self.log('Получили сообщение от администратора бота: '+text)
         if text == '#help':
             self._send_to_admin('\n'.join([
                 '#enable_bot - Включить бота',
@@ -770,6 +844,7 @@ class ChatWarsAutomator(object):
                 self._send_to_admin(template.format(self.castle, heroClass, heroName, self.level, heroAtk, heroDef, heroExpNow, heroExpNext, self.endurance, self.endurancetop, self.gold, heroEquip))
 
         elif text == '#ping':
+            self.log('pinging...')
             self._send_to_admin('#pong')
 
         elif text == '#lt_arena':
@@ -798,8 +873,8 @@ class ChatWarsAutomator(object):
 
         elif text.startswith('#add'):
             if self.level >= 15:
-                resource_id_list = text.split(' ')[1].split(',')
-                self.trade_add(resource_id_list)
+                self.res_id_list = text.split(' ')[1].split(',')
+                self.trade_add()
             else:
                 self._send_to_admin('Я еще не дорос, у меня только ' + str(self.level) + ' уровень')
 
@@ -985,11 +1060,23 @@ class ChatWarsAutomator(object):
                 self.action_list.append(orders['pet_feed'])
             if wash_state <= 4:
                 self.action_list.append(orders['pet_wash'])
-            sleep(random.randint(8, 12))
-            self.action_list.append('⬅️Назад')
+            Timer(random.randint(8, 12), self.action_list.append('⬅️Назад'))
 
         elif 'Добро пожаловать на арену!' in text:
             self.arena_parser(message)
+            if 'Даже драконы не могут драться так часто' in text:
+                self.arena_delay = True
+                self.arena_delay_day = datetime.now(self.tz).day
+                self.log("Отдыхаем денек от арены")
+                self.arena_running = False
+                self.action_list.append('⬅️Назад')
+            if self.config['arena_enabled'] and not self.arena_delay and self.gold >= 5 and not self.arena_running:
+                self.log('Включаем флаг - арена запущена')
+                #if arena_change_enabled:
+                #    action_list.append('/on_{0}'.format(arena_item_id))
+                self.arena_running = True
+                self.action_list.append('🔎Поиск соперника')
+                self.log('Топаем на арену')
 
         elif 'В казне недостаточно' in text:
             self.log("Стройка не удалась, в замке нет денег")
@@ -1008,13 +1095,14 @@ class ChatWarsAutomator(object):
             attack_chosen = arena_attack[random.randint(0, 2)]
             cover_chosen = arena_cover[random.randint(0, 2)]
             self.log('Атака: {0}, Защита: {1}'.format(attack_chosen, cover_chosen))
-            sleep(random.randint(2, 6))
-            if random.randint(0, 1):
-                self.action_list.append(attack_chosen)
-                self.action_list.append(cover_chosen)
-            else:
-                self.action_list.append(cover_chosen)
-                self.action_list.append(attack_chosen)
+            def _next():
+                if random.randint(0, 1):
+                    self.action_list.append(attack_chosen)
+                    self.action_list.append(cover_chosen)
+                else:
+                    self.action_list.append(cover_chosen)
+                    self.action_list.append(attack_chosen)
+            Timer(random.randint(2, 6), _next())
 
         elif text.find('Победил воин') != -1 or text.find('Ничья') != -1:
             self.lt_info = time()
@@ -1026,24 +1114,6 @@ class ChatWarsAutomator(object):
             c = re.search('(/fight.*)', text).group(1)
             self.action_list.append(c)
             self._forward_msg(message, self.admin_dialog)
-
-        elif 'Добро пожаловать на арену!' in text:
-            victory = re.search('Количество побед: (\d+)', text).group(1)
-            arenafight = re.search('Поединков сегодня (\d+) из (\d+)', text)
-            self.log('Поединков: {0} / {1}. Побед: {2}'.format(arenafight.group(1), arenafight.group(2), victory))
-            if 'Даже драконы не могут драться так часто' in text:
-                self.arena_delay = True
-                self.arena_delay_day = datetime.now(self.tz).day
-                self.log("Отдыхаем денек от арены")
-                self.arena_running = False
-                self.action_list.append('⬅️Назад')
-            if self.config['arena_enabled'] and not self.arena_delay and self.gold >= 5 and not self.arena_running:
-                self.log('Включаем флаг - арена запущена')
-                #if arena_change_enabled:
-                #    action_list.append('/on_{0}'.format(arena_item_id))
-                self.arena_running = True
-                self.action_list.append('🔎Поиск соперника')
-                self.log('Топаем на арену')
 
         elif 'Битва семи замков через' in text or 'Межсезонье' in text:
             self.hero_parser(message)
@@ -1067,10 +1137,11 @@ class ChatWarsAutomator(object):
             else:
                 self.log('Времени достаточно')
             if self.report:
-                self.action_list.append('/report')
-                sleep(random.randint(3, 6))
-                self.log('Запросили репорт по битве')
-                self.report = False
+                def _next():
+                    self.action_list.append('/report')
+                    self.log('Запросили репорт по битве')
+                    self.report = False
+                Timer(random.randint(3, 6), _next())
 
             if text.find('🛌Отдых') == -1 and text.find('🛡Защита ') == -1:
                 self.log('Чем-то занят, ждём')
@@ -1152,32 +1223,36 @@ class ChatWarsAutomator(object):
                 self.twinkstock_enabled = False
                 self._send_to_admin('Сток обновлен')
 
-    def trade_add(self, res_id_list):
+    def trade_add(self):
         if not self.tradeadd:
             self._send_to_dialog('/start',self.tradebot_dialog)
             self.tradeadd = True
-            sleep(1)
-
-        if self.tradeadd and len(res_id_list) != 0:
+        if self.tradeadd and len(self.res_id_list) != 0:
             total, messages, _ = self.client.get_message_history(self.tradebot_dialog, limit=1)
             for m in messages:
                 text = m.message
                 self.log('добавляем ресурсы по списку..')
-                for res_id in res_id_list:
+                # тк запросы на /add стартуют не строго по завершению предыдущего, а почти сразу, просто поставить
+                # каждый на 1-2 сек таймаута неправильно - через 1-2 секунды они стартанут всей кучей. поэтому
+                # каждый следующий ставим на таймаут+(1-2 сек), т.е на 1-2 сек дольше, чем все предыдущие таймауты
+                # вместе взятые
+                timeout = 0
+                for res_id in self.res_id_list:
                     if re.search('/add_' + res_id + ' ', text):
-                        count = re.search('/add_' + res_id + '\D+(.*)', text).group(1)
-                        self._send_to_dialog('/add_' + res_id + ' ' + str(count), self.tradebot_dialog)
-                        self.log('Добавили ' + str(count) + ' шт. ресурса ' + res_id)
-                        self._send_to_admin('Добавлено ' + str(count) + ' шт. ресурса ' + res_id)
-                        sleep(random.randint(2, 5))
+                        def _next():
+                            count = re.search('/add_' + res_id + '\D+(.*)', text).group(1)
+                            self._send_to_dialog('/add_' + res_id + ' ' + str(count), self.tradebot_dialog)
+                            self.log('Добавили ' + str(count) + ' шт. ресурса ' + res_id)
+                            self._send_to_admin('Добавлено ' + str(count) + ' шт. ресурса ' + res_id)
+                        timeout += random.randint(2, 5)
+                        Timer(timeout, _next())
                     else:
                         self.log('На складе нет ресурса ' + res_id)
                         self._send_to_admin('На складе нет ресурса ' + res_id)
         self._send_to_dialog('/done', self.tradebot_dialog)
         self.log('Предложение готово')
         self.tradeadd = False
-        sleep(2)
-        self._send_last_trade_offer()
+        Timer(2, self._send_last_trade_offer())
 
 
     def log(self, message):
@@ -1195,19 +1270,17 @@ class ChatWarsAutomator(object):
         self.action_list.append(order)
 
     def _send_to_chatwars(self, text):
-        sleep(random.randint(2, 5))
         # print('Sending to chatwars: "%s"' % text)
-        self.client.send_message(self.chatwars_dialog, text)
+        Timer(random.randint(2, 5), self.client.send_message(self.chatwars_dialog, text))
+
 
     def _send_to_admin(self, text):
-        sleep(random.randint(1, 2))
         # print('Sending to admin: "%s"' % text)
-        self.client.send_message(self.admin_dialog, text)
+        Timer(random.randint(1, 2), self.client.send_message(self.admin_dialog, text))
 
     def _send_to_dialog(self, text, dialog):
-        sleep(random.randint(1, 2))
         # print('Sending to admin: "%s"' % text)
-        self.client.send_message(dialog, text)
+        Timer(random.randint(1, 2), self.client.send_message(dialog, text))
 
     def _forward_msg(self, msg, dialog):
         if not dialog:
@@ -1216,10 +1289,9 @@ class ChatWarsAutomator(object):
         fwd_id = telethon.helpers.generate_random_long()
         peer = telethon.utils.get_input_peer(dialog)
         msg_id = getattr(msg, 'id', None)
-        sleep(random.randint(1, 2))
         if msg_id:
             # print('Forwarding', msg_id, 'to', peer, msg)
-            self.client.invoke(ForwardMessageRequest(peer, msg_id, fwd_id))
+            Timer(random.randint(1, 2), self.client.invoke(ForwardMessageRequest(peer, msg_id, fwd_id)))
             return True
         else:
             print('Cannot forward message: msg id unavailable: ', msg)
@@ -1328,33 +1400,78 @@ def read_config():
 
 
 def main():
-    try:
-        open(config_path)
-    except FileNotFoundError as e:
-        print('Конфиг не найден')
-        save_config(config)
-        print('Новый конфиг создан')
-    except Exception as e:
-        ''
-        print(str(e))
-    CONFIG = read_config()
+    global config_path
+    global phone
     while True:
-        print('Connecting to telegram...')
-        client = telethon.TelegramClient(phone, api_id, api_hash)
-        client.connect()
-        if not client.is_user_authorized():
-            print('Not authorized')
-            authorize(client, phone)
+        if not reg_number:
+            print('Connecting to telegram...')
+            client = telethon.TelegramClient(phone, api_id, api_hash)
+            client.connect()
+            if not client.is_user_authorized():
+                print('Not authorized')
+                authorize(client, phone)
+        else:
+            print('Регистрируем номер...')
+            reg_service = 'sms-reg'
+            r = Reg(reg_service)
+            balance = r.get_balance()
+
+            if balance < 2:
+                raise Exception('Нет денег на балансе. Осталось {0} р.'.format(balance))
+
+            tzid = r.get_tzid()
+
+            phone = r.wait_num(tzid)
+
+            client = telethon.TelegramClient(phone, api_id, api_hash)
+            client.connect()
+            if not client.is_user_authorized():
+                print('Not authorized')
+                r.set_ready(tzid)
+                code = r.wait_code(tzid)
+                first_name = ''
+                last_name = ''
+                username = ''
+                if reg_generate_name:
+                    first_name = names.get_first_name()
+                    last_name = names.get_last_name()
+                    username = first_name+last_name
+                else:
+                    first_name = input('Введи имя (не может быть пустым): ')
+                    last_name = input('Введи фамилию (может быть пустой): ')
+                    username = input('Введи корректный юзернейм или оставь пустым: ')
+                print('{0} {1}, @{2}'.format(first_name, last_name, username) if bool(username) else '{0} {1}, без юзернейма'.format(first_name, last_name))
+                client.sign_up(phone, code, first_name, last_name)
+                r.set_ok(tzid)
+                username_available = client.invoke(CheckUsernameRequest(username))
+                if not username_available:
+                    print('Юзернейм неверен или недоступен:(')
+                else:
+                    set_username_result = client.invoke(UpdateUsernameRequest(username))
+                    if isinstance(set_username_result, User):
+                        print('Юзернейм удачно установлен')
+                    else:
+                        print('Что-то пошло не так: ', str(set_username_result))
+
         try:
             print('Connected to telegram')
-            a = ChatWarsAutomator(client, CONFIG)
+            config_path = fullpath + '/bot_cfg/' + phone + '.json'
+            try:
+                open(config_path)
+            except FileNotFoundError:
+                print('Конфиг не найден')
+                save_config(config)
+                print('Новый конфиг создан')
+            except Exception as e:
+                print(str(e))
+            a = ChatWarsAutomator(client, read_config())
             a.loop()
         except Exception as e:
             print('Exception during chatwars automation process: ', e)
             traceback.print_exc()
-        print('Disconnecting...')
-        client.disconnect()
-        sleep(5)
+            print('Disconnecting...')
+            client.disconnect()
+            sleep(5)
 
 
 if __name__ == '__main__':
