@@ -442,27 +442,31 @@ class ChatWarsAutomator(object):
         self.last_pet_play = 0
         self.class_available = False
         self.res_id_list = []
-        self.CHATWARS_PROPS = self.find_props('ChatWarsBot')
-        self.CAPTCHA_PROPS  = self.find_props('ChatWarsCaptchaBot')
-        self.TRADEBOT_PROPS = self.find_props('ChatWarsTradeBot')
-        self.STOCKBOT_PROPS = self.find_props('PenguindrumStockBot')
-        self.REDSTAT_PROPS  = self.find_props('CWRedCastleBot')
-        self.MARKET_PROPS   = self.find_props('ChatWarsMarket')
-        self.ADMIN_PROPS    = self.find_props(admin_username)
-        self.GROUP_PROPS    = self.find_group_id(group_name)
+        self.CHATWARS_PROPS   = self.find_props('ChatWarsBot')
+        self.CAPTCHA_PROPS    = self.find_props('ChatWarsCaptchaBot')
+        self.TRADEBOT_PROPS   = self.find_props('ChatWarsTradeBot')
+        self.STOCKBOT_PROPS   = self.find_props('PenguindrumStockBot')
+        self.REDSTAT_PROPS    = self.find_props('RedStatBot')
+        self.REDSTAT2_PROPS   = self.find_props('CWRedCastleBot')
+        self.BLUEOYSTER_PROPS = self.find_props('BlueOysterBot')
+        self.MARKET_PROPS     = self.find_props('ChatWarsMarket')
+        self.ADMIN_PROPS      = self.find_props(admin_username)
+        self.GROUP_PROPS      = self.find_group_id(group_name)
         self.ALL_PROPS = [self.CHATWARS_PROPS, self.ADMIN_PROPS, self.CAPTCHA_PROPS, self.STOCKBOT_PROPS,
-                          self.TRADEBOT_PROPS, self.REDSTAT_PROPS]
-        self.ADMIN_ID = self.find_props_id(admin_username)
+                          self.TRADEBOT_PROPS, self.REDSTAT_PROPS, self.REDSTAT2_PROPS, self.BLUEOYSTER_PROPS]
+        self.ADMIN_ID    = self.find_props_id(admin_username)
         self.CHATWARS_ID = self.find_props_id('ChatWarsBot')
         self.TRADEBOT_ID = self.find_props_id('ChatWarsTradeBot')
         self.STOCKBOT_ID = self.find_props_id('PenguindrumStockBot')
-        self.chatwars_dialog = self.find_dialog_user('ChatWarsBot')
-        self.captcha_dialog  = self.find_dialog_user('ChatWarsCaptchaBot')
-        self.redstat_dialog  = self.find_dialog_user('CWRedCastleBot')
-        self.tradebot_dialog = self.find_dialog_user('ChatWarsTradeBot')
-        self.stockbot_dialog = self.find_dialog_user('PenguindrumStockBot')
-        self.market_dialog   = self.find_dialog_chat('ChatWarsMarket')
-        self.market_chat     = self.get_market_input_peer()
+        self.chatwars_dialog  = self.find_dialog_user('ChatWarsBot')
+        self.captcha_dialog   = self.find_dialog_user('ChatWarsCaptchaBot')
+        self.redstat_dialog   = self.find_dialog_user('RedStatBot')
+        self.redstat2_dialog  = self.find_dialog_user('CWRedCastleBot')
+        self.blueyster_dialog = self.find_dialog_user('BlueOysterBot')
+        self.tradebot_dialog  = self.find_dialog_user('ChatWarsTradeBot')
+        self.stockbot_dialog  = self.find_dialog_user('PenguindrumStockBot')
+        self.market_dialog    = self.find_dialog_chat('ChatWarsMarket')
+        self.market_chat      = self.get_market_input_peer()
         if group_name is not None:
             self.admin_dialog = self.find_dialog(self.GROUP_PROPS)
         else:
@@ -554,6 +558,7 @@ class ChatWarsAutomator(object):
         self.client.add_update_handler(self.update_handler)
         while True:
             try:
+
                 if time() - self.lt_info > self.get_info_diff:
                     if self.arena_delay and self.arena_delay_day != datetime.now(self.tz).day:
                         self.arena_delay = False
@@ -909,7 +914,7 @@ class ChatWarsAutomator(object):
             elif text.find('⛰') != -1:
                 self.update_order(orders['gorni_fort'])
             elif text.find('🛡') != -1:
-                self.update_order(self.castle_name)
+                self.update_order(self.castle)
                 # elif self.config['quest_fight_enabled'] and text.find('/fight') != -1:
                 #    c = re.search('(\/fight.*)', text).group(1)
                 #    self.action_list.append(c)
@@ -965,6 +970,7 @@ class ChatWarsAutomator(object):
     def parse_from_chatwars(self, message):
         self.log('Получили сообщение от бота. Проверяем условия')
         text = message.message
+
         if text.find('🌟Поздравляем! Новый уровень!') != -1 and self.config['lvl_up'] != 'lvl_off':
             self.log('получили уровень - {0}'.format(orders[self.config['lvl_up']]))
             self.action_list.append('/level_up')
@@ -993,6 +999,17 @@ class ChatWarsAutomator(object):
             self.log("Получен репорт со стройки")
             if self.castle_name == 'red':
                 self._forward_msg(message, self.redstat_dialog)
+                self._forward_msg(message, self.redstat2_dialog)
+            if self.castle_name == 'blue':
+                self._forward_msg(message, self.blueyster_dialog)
+
+        elif 'Здание отремонтировано' in text:
+            self.log("Получен репорт с ремонта")
+            if self.castle_name == 'red':
+                self._forward_msg(message, self.redstat_dialog)
+                self._forward_msg(message, self.redstat2_dialog)
+            if self.castle_name == 'blue':
+                self._forward_msg(message, self.blueyster_dialog)
 
         elif 'Твои результаты в бою:' in text:
             self.log("Получен репорт с последнего боя")
@@ -1000,7 +1017,7 @@ class ChatWarsAutomator(object):
                 self._forward_msg(message, self.redstat_dialog)
 
         elif 'Закупка начинается. Отслеживание заказа:' in text:
-            buytrade = re.search('обойдется примерно в ([0-9]+)💰', text).group(1)
+            buytrade = re.search('обойдется примерно в (\d+)💰', text).group(1)
             self.gold -= int(buytrade)
             self.log('Купили что-то на бирже на {0} золота'.format(buytrade))
 
@@ -1054,13 +1071,13 @@ class ChatWarsAutomator(object):
             self.log('⚽️{0} 🍼{1} 🛁{2} Запас еды {3}'.format(play_state, food_state, wash_state, food_rest))
             if food_rest <= 2:
                 self._send_to_admin('Питомцу скоро будет нечего жрать!')
-            if play_state <= 4 or round(time()) - self.last_pet_play >= 3600:
+            if play_state <= 4 and round(time()) - self.last_pet_play >= 3600:
                 self.action_list.append(orders['pet_play'])
-            if food_state <= 4 and food_rest != 0:
+            if food_state <= 3 and food_rest != 0:
                 self.action_list.append(orders['pet_feed'])
             if wash_state <= 4:
                 self.action_list.append(orders['pet_wash'])
-            Timer(random.randint(8, 12), self.action_list.append('⬅️Назад'))
+            Timer(random.randint(8, 12), self.action_list.append, '⬅️Назад').start()
 
         elif 'Добро пожаловать на арену!' in text:
             self.arena_parser(message)
@@ -1102,7 +1119,7 @@ class ChatWarsAutomator(object):
                 else:
                     self.action_list.append(cover_chosen)
                     self.action_list.append(attack_chosen)
-            Timer(random.randint(2, 6), _next())
+            Timer(random.randint(2, 6), _next).start()
 
         elif text.find('Победил воин') != -1 or text.find('Ничья') != -1:
             self.lt_info = time()
@@ -1127,7 +1144,7 @@ class ChatWarsAutomator(object):
                     'time'] > 1800 and 'Отдых' in self.state:
                     if self.castle_name == 'red':
                         self._forward_msg(message, self.redstat_dialog)
-                    self.update_order(self.castle_name)
+                    self.update_order(self.castle)
                     if self.config['donate_enabled']:
                         if self.gold > 0:
                             self.log('Донат {0} золота в казну замка'.format(self.gold))
@@ -1141,7 +1158,7 @@ class ChatWarsAutomator(object):
                     self.action_list.append('/report')
                     self.log('Запросили репорт по битве')
                     self.report = False
-                Timer(random.randint(3, 6), _next())
+                Timer(random.randint(3, 6), _next).start()
 
             if text.find('🛌Отдых') == -1 and text.find('🛡Защита ') == -1:
                 self.log('Чем-то занят, ждём')
@@ -1245,14 +1262,14 @@ class ChatWarsAutomator(object):
                             self.log('Добавили ' + str(count) + ' шт. ресурса ' + res_id)
                             self._send_to_admin('Добавлено ' + str(count) + ' шт. ресурса ' + res_id)
                         timeout += random.randint(2, 5)
-                        Timer(timeout, _next())
+                        Timer(timeout, _next).start()
                     else:
                         self.log('На складе нет ресурса ' + res_id)
                         self._send_to_admin('На складе нет ресурса ' + res_id)
         self._send_to_dialog('/done', self.tradebot_dialog)
         self.log('Предложение готово')
         self.tradeadd = False
-        Timer(2, self._send_last_trade_offer())
+        Timer(2, self._send_last_trade_offer).start()
 
 
     def log(self, message):
@@ -1271,16 +1288,16 @@ class ChatWarsAutomator(object):
 
     def _send_to_chatwars(self, text):
         # print('Sending to chatwars: "%s"' % text)
-        Timer(random.randint(2, 5), self.client.send_message(self.chatwars_dialog, text))
+        Timer(random.randint(2, 5), self.client.send_message, (self.chatwars_dialog, text)).start()
 
 
     def _send_to_admin(self, text):
         # print('Sending to admin: "%s"' % text)
-        Timer(random.randint(1, 2), self.client.send_message(self.admin_dialog, text))
+        Timer(random.randint(1, 2), self.client.send_message, (self.admin_dialog, text)).start()
 
     def _send_to_dialog(self, text, dialog):
         # print('Sending to admin: "%s"' % text)
-        Timer(random.randint(1, 2), self.client.send_message(dialog, text))
+        Timer(random.randint(1, 2), self.client.send_message, (dialog, text)).start()
 
     def _forward_msg(self, msg, dialog):
         if not dialog:
@@ -1291,7 +1308,7 @@ class ChatWarsAutomator(object):
         msg_id = getattr(msg, 'id', None)
         if msg_id:
             # print('Forwarding', msg_id, 'to', peer, msg)
-            Timer(random.randint(1, 2), self.client.invoke(ForwardMessageRequest(peer, msg_id, fwd_id)))
+            Timer(random.randint(1, 2), self.client.invoke, ForwardMessageRequest(peer, msg_id, fwd_id)).start()
             return True
         else:
             print('Cannot forward message: msg id unavailable: ', msg)
