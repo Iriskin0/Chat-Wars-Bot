@@ -863,7 +863,7 @@ class ChatWarsAutomator(object):
         elif text.startswith('#push_order'):
             command = text.split(' ')[1]
             if command in orders:
-                self.update_order(orders[command])
+                self.update_order(command)
                 self._send_to_admin('Команда ' + command + ' применена')
             else:
                 self._send_to_admin('Команда ' + command + ' не распознана')
@@ -895,25 +895,25 @@ class ChatWarsAutomator(object):
 
         if self.config['bot_enabled'] and self.config['order_enabled']:
             if text.find(orders['red']) != -1:
-                self.update_order(orders['red'])
+                self.update_order('red')
             elif text.find(orders['black']) != -1:
-                self.update_order(orders['black'])
+                self.update_order('black')
             elif text.find(orders['white']) != -1:
-                self.update_order(orders['white'])
+                self.update_order('white')
             elif text.find(orders['yellow']) != -1:
-                self.update_order(orders['yellow'])
+                self.update_order('yellow')
             elif text.find(orders['blue']) != -1:
-                self.update_order(orders['blue'])
+                self.update_order('blue')
             elif text.find(orders['mint']) != -1:
-                self.update_order(orders['mint'])
+                self.update_order('mint')
             elif text.find(orders['twilight']) != -1:
-                self.update_order(orders['twilight'])
+                self.update_order('twilight')
             elif text.find('🌲') != -1:
-                self.update_order(orders['lesnoi_fort'])
+                self.update_order('lesnoi_fort')
             elif text.find('⚓') != -1:
-                self.update_order(orders['sea_fort'])
+                self.update_order('sea_fort')
             elif text.find('⛰') != -1:
-                self.update_order(orders['gorni_fort'])
+                self.update_order('gorni_fort')
             elif text.find('🛡') != -1:
                 self.update_order(self.castle)
                 # elif self.config['quest_fight_enabled'] and text.find('/fight') != -1:
@@ -1247,6 +1247,7 @@ class ChatWarsAutomator(object):
             self.tradeadd = True
         if self.tradeadd and len(self.res_id_list) != 0:
             total, messages, _ = self.client.get_message_history(self.tradebot_dialog, limit=1)
+            timeout = 0
             for m in messages:
                 text = m.message
                 self.log('добавляем ресурсы по списку..')
@@ -1254,7 +1255,6 @@ class ChatWarsAutomator(object):
                 # каждый на 1-2 сек таймаута неправильно - через 1-2 секунды они стартанут всей кучей. поэтому
                 # каждый следующий ставим на таймаут+(1-2 сек), т.е на 1-2 сек дольше, чем все предыдущие таймауты
                 # вместе взятые
-                timeout = 0
                 for res_id in self.res_id_list:
                     if re.search('/add_' + res_id + ' ', text):
                         def _next():
@@ -1267,10 +1267,14 @@ class ChatWarsAutomator(object):
                     else:
                         self.log('На складе нет ресурса ' + res_id)
                         self._send_to_admin('На складе нет ресурса ' + res_id)
-        self._send_to_dialog('/done', self.tradebot_dialog)
-        self.log('Предложение готово')
-        self.tradeadd = False
-        Timer(2, self._send_last_trade_offer).start()
+            timeout += random.randint(2, 5)
+            Timer(timeout, self._send_to_dialog, ('/done', self.tradebot_dialog)).start()
+            timeout += random.randint(2, 5)
+            def _next():
+                self.log('Предложение готово')
+                self.tradeadd = False
+                self._send_last_trade_offer()
+            Timer(timeout, _next).start()
 
 
     def log(self, message):
@@ -1285,7 +1289,7 @@ class ChatWarsAutomator(object):
             self.action_list.append(orders['cover'])
         else:
             self.action_list.append(orders['attack'])
-        self.action_list.append(order)
+        self.action_list.append(orders[order])
 
     def _send_to_chatwars(self, text):
         # print('Sending to chatwars: "%s"' % text)
