@@ -37,7 +37,7 @@ from collections import deque
 from time import time, sleep
 from getopt import getopt
 from datetime import datetime
-from threading import Timer
+from threading import Timer, Thread
 from telethon import TelegramClient
 from telethon.errors import SessionPasswordNeededError
 # from telethon.tl.types import InputUser, InputPeerUser, InputPeerChannel, InputPeerSelf, InputPeerEmpty
@@ -556,29 +556,30 @@ class ChatWarsAutomator(object):
                 continue
         # зацикливаем и ждем обновления сообщений
         self.client.add_update_handler(self.update_handler)
-        while True:
-            try:
+        def _loop():
+            while True:
+                try:
 
-                if time() - self.lt_info > self.get_info_diff:
-                    if self.arena_delay and self.arena_delay_day != datetime.now(self.tz).day:
-                        self.arena_delay = False
-                    self.lt_info = time()
-                    curhour = datetime.now(self.tz).hour
-                    if 9 <= curhour <= 23:
-                        self.get_info_diff = random.randint(420, 900)
-                    else:
-                        self.get_info_diff = random.randint(600, 900)
-                    if self.config['bot_enabled']:
-                        self._send_to_chatwars(orders['hero'])
-                    continue
+                    if time() - self.lt_info > self.get_info_diff:
+                        if self.arena_delay and self.arena_delay_day != datetime.now(self.tz).day:
+                            self.arena_delay = False
+                        self.lt_info = time()
+                        curhour = datetime.now(self.tz).hour
+                        if 9 <= curhour <= 23:
+                            self.get_info_diff = random.randint(420, 900)
+                        else:
+                            self.get_info_diff = random.randint(600, 900)
+                        if self.config['bot_enabled']:
+                            self.action_list.append(orders['hero'])
 
-                if len(self.action_list):
-                    self.log('Отправляем ' + self.action_list[0])
-                    self._send_to_chatwars(self.action_list.popleft())
-                sleep_time = random.randint(2, 5)
-                sleep(sleep_time)
-            except Exception as err:
-                self.log('Ошибка очереди: {0}'.format(err))
+                    if len(self.action_list) > 0:
+                        sleep(random.randint(1, 4))
+                        self.log('Отправляем ' + self.action_list[0])
+                        self._send_to_chatwars(self.action_list.popleft())
+                    sleep(1)
+                except Exception as err:
+                    self.log('Ошибка очереди: {0}'.format(err))
+        Thread(target=_loop).run()
 
     def command_from_admin(self, message):
         text = message.message
@@ -1293,7 +1294,7 @@ class ChatWarsAutomator(object):
 
     def _send_to_admin(self, text):
         # print('Sending to admin: "%s"' % text)
-        Timer(random.randint(1, 2), self.client.send_message, (self.admin_dialog, text)).start()
+        self.client.send_message(self.admin_dialog, text)
 
     def _send_to_dialog(self, text, dialog):
         # print('Sending to admin: "%s"' % text)
