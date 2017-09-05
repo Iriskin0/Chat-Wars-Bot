@@ -120,7 +120,7 @@ gold_to_left = 0
 apikey = None
 
 # пароль для двухшаговой авторизации
-telethon_pw = ''
+telethon_pw = None
 
 # зайдет в маркет, если нет диалога
 join_market = False
@@ -314,8 +314,9 @@ def authorize(client, phone_num):
             client_user = client.sign_in(phone_num, code)
             # Two-step verification may be enabled
         except SessionPasswordNeededError:
-            pw = input('Two step verification password: ')
-            client_user = client.sign_in(password=pw)
+            if telethon_pw is None:
+                raise Exception('Не указан пароль 2фа')
+            client_user = client.sign_in(password=telethon_pw)
 
 
 class Reg(object):
