@@ -1078,7 +1078,8 @@ class ChatWarsAutomator(object):
                 self.action_list.append(orders['pet_feed'])
             if wash_state <= 4:
                 self.action_list.append(orders['pet_wash'])
-            Timer(random.randint(8, 12), self.action_list.append, '⬅️Назад').start()
+            sleep(random.randint(8, 12))
+            self.action_list.append('⬅️Назад')
 
         elif 'Добро пожаловать на арену!' in text:
             self.arena_parser(message)
@@ -1113,14 +1114,13 @@ class ChatWarsAutomator(object):
             attack_chosen = arena_attack[random.randint(0, 2)]
             cover_chosen = arena_cover[random.randint(0, 2)]
             self.log('Атака: {0}, Защита: {1}'.format(attack_chosen, cover_chosen))
-            def _next():
-                if random.randint(0, 1):
-                    self.action_list.append(attack_chosen)
-                    self.action_list.append(cover_chosen)
-                else:
-                    self.action_list.append(cover_chosen)
-                    self.action_list.append(attack_chosen)
-            Timer(random.randint(2, 6), _next).start()
+            sleep(random.randint(2, 6))
+            if random.randint(0, 1):
+                self.action_list.append(attack_chosen)
+                self.action_list.append(cover_chosen)
+            else:
+                self.action_list.append(cover_chosen)
+                self.action_list.append(attack_chosen)
 
         elif text.find('Победил воин') != -1 or text.find('Ничья') != -1:
             self.lt_info = time()
@@ -1155,11 +1155,10 @@ class ChatWarsAutomator(object):
             else:
                 self.log('Времени достаточно')
             if self.report:
-                def _next():
-                    self.action_list.append('/report')
-                    self.log('Запросили репорт по битве')
-                    self.report = False
-                Timer(random.randint(3, 6), _next).start()
+                sleep(random.randint(3, 6))
+                self.action_list.append('/report')
+                self.log('Запросили репорт по битве')
+                self.report = False
 
             if text.find('🛌Отдых') == -1 and text.find('🛡Защита ') == -1:
                 self.log('Чем-то занят, ждём')
@@ -1247,7 +1246,6 @@ class ChatWarsAutomator(object):
             self.tradeadd = True
         if self.tradeadd and len(self.res_id_list) != 0:
             total, messages, _ = self.client.get_message_history(self.tradebot_dialog, limit=1)
-            timeout = 0
             for m in messages:
                 text = m.message
                 self.log('добавляем ресурсы по списку..')
@@ -1257,24 +1255,20 @@ class ChatWarsAutomator(object):
                 # вместе взятые
                 for res_id in self.res_id_list:
                     if re.search('/add_' + res_id + ' ', text):
-                        def _next():
-                            count = re.search('/add_' + res_id + '\D+(.*)', text).group(1)
-                            self._send_to_dialog('/add_' + res_id + ' ' + str(count), self.tradebot_dialog)
-                            self.log('Добавили ' + str(count) + ' шт. ресурса ' + res_id)
-                            self._send_to_admin('Добавлено ' + str(count) + ' шт. ресурса ' + res_id)
-                        timeout += random.randint(2, 5)
-                        Timer(timeout, _next).start()
+                        sleep(random.randint(2,5))
+                        count = re.search('/add_' + res_id + '\D+(.*)', text).group(1)
+                        self._send_to_dialog('/add_' + res_id + ' ' + str(count), self.tradebot_dialog)
+                        self.log('Добавили ' + str(count) + ' шт. ресурса ' + res_id)
+                        # self._send_to_admin('Добавлено ' + str(count) + ' шт. ресурса ' + res_id)
+                        #Timer(timeout, _next).start()
                     else:
                         self.log('На складе нет ресурса ' + res_id)
-                        self._send_to_admin('На складе нет ресурса ' + res_id)
-            timeout += random.randint(2, 5)
-            Timer(timeout, self._send_to_dialog, ('/done', self.tradebot_dialog)).start()
-            timeout += random.randint(2, 5)
-            def _next():
-                self.log('Предложение готово')
-                self.tradeadd = False
-                self._send_last_trade_offer()
-            Timer(timeout, _next).start()
+                        # self._send_to_admin('На складе нет ресурса ' + res_id)
+            self._send_to_dialog('/done', self.tradebot_dialog)
+            sleep(2)
+            self.log('Предложение готово')
+            self.tradeadd = False
+            self._send_last_trade_offer()
 
 
     def log(self, message):
@@ -1293,7 +1287,7 @@ class ChatWarsAutomator(object):
 
     def _send_to_chatwars(self, text):
         # print('Sending to chatwars: "%s"' % text)
-        Timer(random.randint(2, 5), self.client.send_message, (self.chatwars_dialog, text)).start()
+        self.client.send_message(self.chatwars_dialog, text)
 
 
     def _send_to_admin(self, text):
@@ -1302,7 +1296,9 @@ class ChatWarsAutomator(object):
 
     def _send_to_dialog(self, text, dialog):
         # print('Sending to admin: "%s"' % text)
-        Timer(random.randint(1, 2), self.client.send_message, (dialog, text)).start()
+        sleep(random.randint(1,2))
+        self.client.send_message(dialog, text)
+        # Timer(random.randint(1, 2), self.client.send_message, (dialog, text)).start()
 
     def _forward_msg(self, msg, dialog):
         if not dialog:
@@ -1313,7 +1309,9 @@ class ChatWarsAutomator(object):
         msg_id = getattr(msg, 'id', None)
         if msg_id:
             # print('Forwarding', msg_id, 'to', peer, msg)
-            Timer(random.randint(1, 2), self.client.invoke, ForwardMessageRequest(peer, msg_id, fwd_id)).start()
+            sleep(random.randint(1, 2))
+            self.client.invoke(ForwardMessageRequest(peer, msg_id, fwd_id))
+            # Timer(random.randint(1, 2), self.client.invoke, (ForwardMessageRequest(peer, msg_id, fwd_id))).start()
             return True
         else:
             print('Cannot forward message: msg id unavailable: ', msg)
